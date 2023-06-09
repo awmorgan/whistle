@@ -226,8 +226,9 @@ var counter int
 func unifyWithEllipsis(p pattern, q SExpression, s map[Symbol]SExpression, depth []int) bool {
 	// issue is p.isList is false here instead of true when counter is 4
 	counter++
+	fmt.Printf("counter: %d\n", counter)
 	if counter == 4 {
-		breakpoint()
+		fmt.Printf("p.isList: %v\n", p.isList)
 	}
 	if p.isUnderscore {
 		return true
