@@ -2,7 +2,6 @@ package lisp
 
 import (
 	"fmt"
-	"math/rand"
 	"reflect"
 )
 
@@ -97,26 +96,54 @@ type pattern struct {
 	listContent  []pattern
 }
 
+var symbolCounter int
+
 func gensym() Symbol {
-	return Symbol("gensym" + fmt.Sprint(rand.Intn(9999999999)))
+	// return Symbol("gensym" + fmt.Sprint(rand.Intn(9999999999)))
+	symbolCounter += 1
+	return Symbol(fmt.Sprintf("gensym%d", symbolCounter))
 }
 
 // build=true analyses pattern and builds up a gensym lookup table
 // build=false analyses template and substitutes pattern vars with their gensymmed counterparts
 func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build bool) pattern {
+	if counter == 3 {
+		fmt.Printf("got here 1\n")
+	}
 	if p.IsSymbol() {
+		if counter == 3 {
+			fmt.Printf("got here 2\n")
+		}
 		sym := p.AsSymbol()
+		if counter == 3 {
+			fmt.Printf("got here 3\n")
+		}
 		if sym == underscore {
+			if counter == 3 {
+				fmt.Printf("got here 3.1\n")
+			}
 			return pattern{isUnderscore: true}
 		}
 		for _, lit := range literals {
 			if lit == sym {
+				if counter == 3 {
+					fmt.Printf("got here 3.2\n")
+				}
 				return pattern{isLiteral: true, content: p}
 			}
 		}
+		if counter == 3 {
+			fmt.Printf("got here 3.3\n")
+		}
 		if build {
+			if counter == 3 {
+				fmt.Printf("got here 3.4\n")
+			}
 			newsym := gensym()
 			gensyms[sym] = newsym
+			if counter == 3 {
+				fmt.Printf("got here 3.5\n")
+			}
 			return pattern{isVariable: true, content: NewSymbol(newsym)}
 		}
 		newsym, ok := gensyms[sym]
@@ -125,7 +152,13 @@ func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build 
 		}
 		return pattern{isVariable: true, content: NewSymbol(newsym)}
 	}
+	if counter == 3 {
+		fmt.Printf("got here 4\n")
+	}
 	if p.IsAtom() {
+		if counter == 3 {
+			fmt.Printf("got here 5\n")
+		}
 		return pattern{isConstant: true, content: p}
 	}
 	listContent := []pattern{}
@@ -218,7 +251,13 @@ func unify(p pattern, q SExpression, s map[Symbol]SExpression) bool {
 	return unifyWithEllipsis(p, q, s, []int{})
 }
 
+var counter int
 func unifyWithEllipsis(p pattern, q SExpression, s map[Symbol]SExpression, depth []int) bool {
+	// issue is p.isList is false here instead of true when counter is 4
+	counter++
+	if counter == 4 {
+		breakpoint()
+	}
 	if p.isUnderscore {
 		return true
 	}
@@ -379,4 +418,8 @@ func transformer_cond(p Pair) SExpression {
 		)
 	}
 	return expanded.AsPair()
+}
+
+func breakpoint() {
+	fmt.Println("breakpoint")
 }
