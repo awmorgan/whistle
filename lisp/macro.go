@@ -218,6 +218,9 @@ func verifyEllipsis(p pattern, e map[Symbol]int, depth int) bool {
 // TODO: for now, all symbols are pattern variables
 // NOTE: this has become less unification since duplicate pattern vars are not allowed, rename?
 func unify(p pattern, q SExpression, s map[Symbol]SExpression) bool {
+	if counter == 3 {
+		fmt.Println("1: p.isList: ", p.isList) // go: true, tinygo: false
+	}
 	return unifyWithEllipsis(p, q, s, []int{})
 }
 
@@ -260,6 +263,9 @@ Loop:
 			if qp == empty {
 				return false
 			}
+			if counter == 3 {
+				fmt.Println("2: pp.isList: ", pp.isList)
+			}
 			if !unifyWithEllipsis(pp, qp.car(), s, depth) {
 				return false
 			}
@@ -272,6 +278,9 @@ Loop:
 		for {
 			if qp == empty {
 				continue Loop
+			}
+			if counter == 3 {
+				fmt.Println("3: pp.isList: ", pp.isList)
 			}
 			ok := unifyWithEllipsis(pp, qp.car(), s, newdepth)
 			// TODO: scary bug waiting to happen where s contains partial substitution
