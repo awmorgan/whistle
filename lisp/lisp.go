@@ -2,7 +2,10 @@ package lisp
 
 import (
 	"fmt"
+	"math"
+	"math/rand"
 	"strconv"
+	"sync"
 )
 
 type Lisp struct {
@@ -347,3 +350,51 @@ type DefinedProc struct {
 type BuiltinProc = func(*process, *Env, []SExpression) (SExpression, error)
 
 type ExternalProc = func([]SExpression) (SExpression, error)
+
+type process struct {
+	sync.Mutex
+	pid string
+}
+
+func newProcess() *process {
+	p := &process{
+		pid: pidFunc(),
+	}
+	go func() {
+	}()
+	return p
+}
+
+var pidFunc func() string = generatePid
+
+func generatePid() string {
+	return "<pid" + fmt.Sprint(rand.Intn(9999999999)) + ">"
+}
+
+func GlobalEnv() *Env {
+	return &Env{dict: map[Symbol]SExpression{
+		"+":            builtinFunc(add),
+		"#t":           NewPrimitive(true),
+		"#f":           NewPrimitive(false),
+		"pi":           NewPrimitive(math.Pi),
+		"newline":      NewPrimitive("\n"),
+		"make-hashmap": builtinFunc(makeHashmap),
+	}, outer: nil}
+}
+
+func builtinFunc(f BuiltinProc) Proc {
+	return Proc{
+		isBuiltin: true,
+		sexpression: sexpression{
+			value: f,
+		},
+	}
+}
+
+func add(p *process, env *Env, args []SExpression) (SExpression, error) {
+	return NewPrimitive(args[0].AsNumber() + args[1].AsNumber()), nil
+}
+
+func makeHashmap(p *process, env *Env, args []SExpression) (SExpression, error) {
+	return NewPrimitive(map[SExpression]SExpression{}), nil
+}
