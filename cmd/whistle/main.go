@@ -2,11 +2,9 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"math/rand"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 func main() {
@@ -343,33 +341,19 @@ type BuiltinProc = func(*process, *Env, []SExpression) (SExpression, error)
 type ExternalProc = func([]SExpression) (SExpression, error)
 
 type process struct {
-	sync.Mutex
 	pid string
 }
 
 func newProcess() *process {
 	p := &process{
-		pid: pidFunc(),
+		pid: "<pid" + fmt.Sprint(rand.Intn(9999999999)) + ">",
 	}
-	go func() {
-	}()
 	return p
-}
-
-var pidFunc func() string = generatePid
-
-func generatePid() string {
-	return "<pid" + fmt.Sprint(rand.Intn(9999999999)) + ">"
 }
 
 func GlobalEnv() *Env {
 	return &Env{dict: map[Symbol]SExpression{
-		"+":            builtinFunc(add),
-		"#t":           NewPrimitive(true),
-		"#f":           NewPrimitive(false),
-		"pi":           NewPrimitive(math.Pi),
-		"newline":      NewPrimitive("\n"),
-		"make-hashmap": builtinFunc(makeHashmap),
+		"+": builtinFunc(add),
 	}, outer: nil}
 }
 
@@ -386,16 +370,10 @@ func add(p *process, env *Env, args []SExpression) (SExpression, error) {
 	return NewPrimitive(args[0].AsNumber() + args[1].AsNumber()), nil
 }
 
-func makeHashmap(p *process, env *Env, args []SExpression) (SExpression, error) {
-	return NewPrimitive(map[SExpression]SExpression{}), nil
-}
-
 const ellipsis = "..."
 const underscore = "_"
 
-// For now macros are always globally defined, and even shared between runtimes(!)
 var macromap = map[string]transformer{
-	// TODO: needs a 'begin' in lambda because my lambda implementation only takes 1 body
 	"let": syntaxRules("let", mustParse(`(syntax-rules ()
                                  ((_ ((var exp) ...) body1 body2 ...)
                                    ((lambda (var ...) (begin body1 body2 ...)) exp ...)))`).AsPair()),
@@ -408,7 +386,6 @@ func expandMacro(p Pair) (SExpression, bool) {
 		return p, false
 	}
 	s := p.car().AsSymbol()
-	// fmt.Printf("expandMacro: %s\n", s)
 	tf, ok := macromap[s]
 	if !ok {
 		return p, false
@@ -567,10 +544,7 @@ func unify(p pattern, q SExpression, s map[Symbol]SExpression) bool {
 	return unifyWithEllipsis(p, q, s, []int{})
 }
 
-var counter int
-
 func unifyWithEllipsis(p pattern, q SExpression, s map[Symbol]SExpression, depth []int) bool {
-	counter++
 	if p.isUnderscore {
 		return true
 	}
@@ -722,13 +696,6 @@ func readFromTokens(tokens []string) (SExpression, []string, error) {
 func atom(token string) SExpression {
 	if n, err := strconv.ParseFloat(token, 64); err == nil {
 		return NewPrimitive(n)
-	}
-	if token[0] == token[len(token)-1] && token[0] == '"' {
-		return NewPrimitive(token[1 : len(token)-1])
-	}
-	if token[0] == ',' {
-		unquote, _, _ := readFromTokens([]string{"(", "unquote", token[1:], ")"})
-		return unquote
 	}
 	if token[0] == '\'' {
 		quote, _, _ := readFromTokens([]string{"(", "quote", token[1:], ")"})
