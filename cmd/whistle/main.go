@@ -325,7 +325,6 @@ type process struct {
 }
 
 func newProcess() *process {
-	fmt.Println("new process")
 	p := &process{
 		pid: "<pid1>",
 	}
@@ -620,8 +619,7 @@ func parse(program string) (SExpression, error) {
 func tokenize(s string) []string {
 	s = strings.ReplaceAll(s, "(", " ( ")
 	s = strings.ReplaceAll(s, ")", " ) ")
-	fields := strings.Fields(s)
-	return append([]string{}, fields...)
+	return append([]string{}, strings.Fields(s)...)
 }
 
 func readFromTokens(tokens []string) (SExpression, []string, error) {
