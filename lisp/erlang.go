@@ -70,55 +70,11 @@ func newProcess() *process {
 	return p
 }
 
-func (p *process) Errorf(k continuation, v SExpression, s string, args ...any) SExpression {
-	return NewPrimitive(processError{
-		err: fmt.Errorf(s, args...),
-		pid: p.pid,
-		k:   k,
-		v:   v,
-	})
-}
-
 var mailboxes = make(map[string]chan SExpression)
 var errchannels = make(map[string]chan processError)
 var processlinks = make(map[string]map[string]struct{})
 
-// TODO: move to erlang package, first need to figure out
-// how to untangle the evals in receive builtin func
-func LoadErlang(l Lisp) {
-	p, env := l.process, l.Env
-
-	// receive as 2 macros AND a function call...
-	macromap["receive"] = syntaxRules("receive", mustParse(`(syntax-rules (receive_builtin receive_ after ->)
-        ((_ ((v ...) rest ... ) ... (after millis -> expression ...))
-         (receive_builtin (quote (after millis expression ...)) (receive_ (v ...) rest ...) ...))
-        ((_ ((v ...) rest ... ) ...)
-         (receive_builtin (receive_ (v ...) rest ...) ...)))`).AsPair())
-	macromap["receive_"] = syntaxRules("receive_", mustParse(`(syntax-rules (when -> run fresh equalo)
-        ((_ (vars ...) pattern -> expression ...)
-         (quasiquote ((vars ...) (unquote (lambda (msg)
-           (run 1 (fresh (q vars ...) (equalo q (quasiquote ((unquote vars) ...))) (equalo msg pattern) )))) expression ...)))
-        ((_ (vars ...) pattern (when guard ...) -> expression ...)
-         (quasiquote ((vars ...) (unquote (lambda (msg)
-           (run 1 (fresh (q vars ...) (equalo q (quasiquote ((unquote vars) ...))) (equalo msg pattern) guard ...)))) expression ...))))`).AsPair())
-
-	// these "builtins" can be defined in code now
-	p.evalEnv(env, mustParse(`(define flush (lambda () (receive ((x) x ->
-        (display (self)) (display " got ") (display x) (display newline) (flush))
-        (after 0 -> #t))))`))
-	p.evalEnv(env, mustParse("(define sleep (lambda (t) (receive (after t -> #t))))"))
-}
-
 var pidFunc func() string = generatePid
-
-// TODO: until this lives in erlang package
-func SetPidFuncForTest() {
-	pidi := 0
-	pidFunc = func() string {
-		pidi++
-		return fmt.Sprintf("<%02d>", pidi)
-	}
-}
 
 func generatePid() string {
 	return "<pid" + fmt.Sprint(rand.Intn(9999999999)) + ">"
