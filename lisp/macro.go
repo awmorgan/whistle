@@ -66,14 +66,13 @@ func syntaxRules(keyword string, sr Pair) transformer {
 		e := map[Symbol]int{}
 		p := analysePattern(literals, cp.car(), s, e)
 		t := analyseTemplate(literals, cp.cadr(), s, e)
+		fmt.Printf("before: address of p: %p, p.isList: %v\n", &p, p.isList)
 		clauses = append(clauses, clause{pattern: p, template: t, ellipsis: e})
 	}
 	return func(p Pair) SExpression {
 		for _, c := range clauses {
 			substitutions := map[Symbol]SExpression{}
-			if counter == 3 {
-				fmt.Println("here: ", c.pattern.isList)
-			}
+			fmt.Printf("after: address of c.pattern: %p, c.pattern.isList: %v\n", &c.pattern, c.pattern.isList)
 			if !unify(c.pattern, p, substitutions) {
 				continue
 			}
@@ -153,7 +152,6 @@ func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build 
 
 func analysePattern(literals []string, p SExpression, gensyms map[Symbol]Symbol, ellipsis map[Symbol]int) pattern {
 	pattern := analyse(literals, p, gensyms, true)
-	fmt.Printf("analysePattern: pattern.isList=%v\n", pattern.isList)
 	analyseEllipsis(pattern, ellipsis, 0)
 	return pattern
 }
@@ -223,9 +221,6 @@ func verifyEllipsis(p pattern, e map[Symbol]int, depth int) bool {
 // TODO: for now, all symbols are pattern variables
 // NOTE: this has become less unification since duplicate pattern vars are not allowed, rename?
 func unify(p pattern, q SExpression, s map[Symbol]SExpression) bool {
-	if counter == 3 {
-		fmt.Println("1: p.isList: ", p.isList) // go: true, tinygo: false
-	}
 	return unifyWithEllipsis(p, q, s, []int{})
 }
 
@@ -234,9 +229,7 @@ var counter int
 func unifyWithEllipsis(p pattern, q SExpression, s map[Symbol]SExpression, depth []int) bool {
 	// issue is p.isList is false here instead of true when counter is 4
 	counter++
-	fmt.Printf("counter: %d\n", counter)
 	if counter == 4 {
-		fmt.Printf("p.isList: %v\n", p.isList)
 	}
 	if p.isUnderscore {
 		return true
