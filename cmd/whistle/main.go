@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -611,8 +610,7 @@ func mustParse(program string) SExpression {
 }
 
 func parse(program string) (SExpression, error) {
-	s := tokenize(program)
-	p, _, err := readFromTokens(s)
+	p, _, err := readFromTokens(tokenize(program))
 	return p, err
 }
 
@@ -640,8 +638,10 @@ func readFromTokens(tokens []string) (SExpression, []string, error) {
 }
 
 func atom(token string) SExpression {
-	if n, err := strconv.ParseFloat(token, 64); err == nil {
-		return NewPrimitive(n)
+	if token == "0" {
+		return NewPrimitive(0.0)
+	} else if token == "1" {
+		return NewPrimitive(1.0)
 	}
 	if token[0] == '\'' {
 		quote, _, _ := readFromTokens([]string{"(", "quote", token[1:], ")"})
