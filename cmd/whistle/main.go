@@ -695,27 +695,8 @@ func tokenize(s string) []string {
 	s = strings.ReplaceAll(s, ")", " ) ")
 	tokenized := []string{}
 	fields := strings.Fields(s)
-	str := ""
-	comment := false
 	for i := 0; i < len(fields); i++ {
 		ss := fields[i]
-		if len(str) == 0 && ss == "#|" {
-			comment = true
-			continue
-		}
-		if len(str) == 0 && comment && ss == "|#" {
-			comment = false
-			continue
-		}
-		if comment {
-			continue
-		}
-		if len(str) == 0 && strings.HasPrefix(ss, `"`) {
-			if len(ss) > 1 && strings.HasSuffix(ss, `"`) {
-				tokenized = append(tokenized, ss)
-				continue
-			}
-		}
 		tokenized = append(tokenized, ss)
 	}
 	return tokenized
