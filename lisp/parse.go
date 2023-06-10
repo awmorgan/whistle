@@ -10,10 +10,7 @@ import (
 // TODO: read from stream of input, maybe eval as we parse valid sexpressions
 // For now, we just slurp in the entire file and return a list of expressions
 func ParseFile(filename string) ([]SExpression, error) {
-	b, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
+	b, _ := os.ReadFile(filename)
 	return Multiparse(string(b))
 }
 
@@ -21,10 +18,7 @@ func Multiparse(file string) ([]SExpression, error) {
 	tokens := tokenize(file)
 	exprs := []SExpression{}
 	for len(tokens) > 0 {
-		e, rem, err := readFromTokens(tokens)
-		if err != nil {
-			return nil, err
-		}
+		e, rem, _ := readFromTokens(tokens)
 		exprs = append(exprs, e)
 		tokens = rem
 	}
@@ -32,10 +26,7 @@ func Multiparse(file string) ([]SExpression, error) {
 }
 
 func mustParse(program string) SExpression {
-	p, err := parse(program)
-	if err != nil {
-		panic(err)
-	}
+	p, _ := parse(program)
 	return p
 }
 
@@ -73,16 +64,6 @@ func tokenize(s string) []string {
 				tokenized = append(tokenized, ss)
 				continue
 			}
-			str = ss
-			continue
-		}
-		if len(str) > 0 {
-			str += " " + ss
-			if strings.HasSuffix(ss, `"`) {
-				tokenized = append(tokenized, str)
-				str = ""
-			}
-			continue
 		}
 		tokenized = append(tokenized, ss)
 	}
@@ -90,22 +71,13 @@ func tokenize(s string) []string {
 }
 
 func readFromTokens(tokens []string) (SExpression, []string, error) {
-	if len(tokens) == 0 {
-		return nil, nil, fmt.Errorf("syntax error")
-	}
 	token := tokens[0]
 	tokens = tokens[1:]
 	switch token {
 	case "(":
 		list := []SExpression{}
 		for tokens[0] != ")" {
-			parsed, t, err := readFromTokens(tokens)
-			if err != nil {
-				return nil, nil, err
-			}
-			if len(t) == 0 {
-				return nil, nil, fmt.Errorf("syntax error")
-			}
+			parsed, t, _ := readFromTokens(tokens)
 			tokens = t
 			list = append(list, parsed)
 		}

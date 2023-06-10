@@ -108,9 +108,6 @@ func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build 
 		}
 		return pattern{isVariable: true, content: NewSymbol(newsym)}
 	}
-	if p.IsAtom() {
-		return pattern{isConstant: true, content: p}
-	}
 	listContent := []pattern{}
 	list := cons2list(p.AsPair())
 	for i := 0; i < len(list); i++ {
