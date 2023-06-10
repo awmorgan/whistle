@@ -3,7 +3,6 @@ package lisp
 import (
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 type SExpression interface {
@@ -16,7 +15,6 @@ type SExpression interface {
 	AsAtom() Atom
 	AsPair() Pair
 	AsProcedure() Proc //edure
-	String() string
 }
 
 type sexpression struct {
@@ -157,27 +155,7 @@ func (p Pair) cddr() SExpression {
 	return p.cdr().AsPair().cdr()
 }
 
-func (p Pair) cdddr() SExpression {
-	return p.cdr().AsPair().cdr().AsPair().cdr()
-}
-
 var empty Pair = NewPair(nil, nil)
-
-func (p Pair) String() string {
-	return "(" + strings.Join(p.recString(), " ") + ")"
-}
-
-func (p Pair) recString() []string {
-	if p == empty {
-		return nil
-	}
-	s := []string{p.pcar.String()}
-	cdr := p.pcdr
-	if cdr.IsPair() {
-		return append(s, cdr.AsPair().recString()...)
-	}
-	return append(s, ".", cdr.String())
-}
 
 func MakeConsList(list []SExpression) Pair {
 	return list2cons(list...)
