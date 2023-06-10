@@ -81,9 +81,6 @@ func readFromTokens(tokens []string) (SExpression, []string, error) {
 			tokens = t
 			list = append(list, parsed)
 		}
-		if err := syntaxCheck(list); err != nil {
-			return nil, nil, err
-		}
 		return list2cons(list...), tokens[1:], nil
 	case ")":
 		return nil, nil, fmt.Errorf("unexpected ')'")
@@ -112,64 +109,3 @@ func atom(token string) SExpression {
 	return NewSymbol(token)
 }
 
-// check syntactic form of some builtins
-// so we don't encounter weirdness at runtime
-// TODO: how does this work with macros? -> currently it doesn't
-// would take applying macros actually at read time to make this work
-func syntaxCheck(list []SExpression) error {
-	if len(list) == 0 {
-		return nil
-	}
-	if !list[0].IsSymbol() {
-		return nil
-	}
-	switch list[0].AsSymbol() {
-	case "if":
-		if len(list) != 3 && len(list) != 4 {
-			return fmt.Errorf("invalid syntax %s", list2cons(list...))
-		}
-	case "begin":
-		if len(list) == 1 {
-			return fmt.Errorf("invalid syntax %s", list2cons(list...))
-		}
-	case "quote":
-		if len(list) != 2 {
-			return fmt.Errorf("invalid syntax %s", list2cons(list...))
-		}
-	case "define":
-		if len(list) != 3 {
-			return fmt.Errorf("invalid syntax %s", list2cons(list...))
-		}
-		if !list[1].IsSymbol() {
-			return fmt.Errorf("invalid syntax %s", list2cons(list...))
-		}
-	case "define-syntax":
-		if len(list) != 3 {
-			return fmt.Errorf("invalid syntax %s", list2cons(list...))
-		}
-		if !list[1].IsSymbol() {
-			return fmt.Errorf("invalid syntax %s", list2cons(list...))
-		}
-	case "syntax-rules":
-		if !list[1].IsPair() {
-			return fmt.Errorf("invalid syntax %s", list2cons(list...))
-		}
-		for _, e := range list[2:] {
-			if !e.IsPair() {
-				return fmt.Errorf("invalid syntax %s", list2cons(list...))
-			}
-			p := cons2list(e.AsPair())
-			if len(p) != 2 {
-				return fmt.Errorf("invalid syntax %s", list2cons(list...))
-			}
-		}
-	case "lambda":
-		if len(list) != 3 {
-			return fmt.Errorf("invalid syntax %s", list2cons(list...))
-		}
-		if !list[1].IsPair() {
-			return fmt.Errorf("invalid syntax %s", list2cons(list...))
-		}
-	}
-	return nil
-}
