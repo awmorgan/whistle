@@ -55,13 +55,17 @@ func syntaxRules(keyword string, sr Pair) transformer {
 		e := map[Symbol]int{}
 		p := analysePattern(literals, cp.car(), s, e)
 		t := analyseTemplate(literals, cp.cadr(), s, e)
-		fmt.Printf("before: address of p: %p, p.isList: %v\n", &p, p.isList)
 		clauses = append(clauses, clause{pattern: p, template: t, ellipsis: e})
 	}
+	fmt.Printf("len(clauses): %d\n", len(clauses))
+	for i, c := range clauses {
+		fmt.Printf("before: clause[%d].pattern.isList: %v\n", i, c.pattern.isList)
+	}
 	return func(p Pair) SExpression {
-		for _, c := range clauses {
+		for i, c := range clauses {
 			substitutions := map[Symbol]SExpression{}
-			fmt.Printf("after: address of c.pattern: %p, c.pattern.isList: %v\n", &c.pattern, c.pattern.isList)
+			fmt.Printf("len(clauses): %d\n", len(clauses))
+			fmt.Printf("in closure: clause[%d].pattern.isList: %v\n", i, c.pattern.isList)
 			if !unify(c.pattern, p, substitutions) {
 				continue
 			}
@@ -388,6 +392,3 @@ func transformer_cond(p Pair) SExpression {
 	return expanded.AsPair()
 }
 
-func breakpoint() {
-	fmt.Println("breakpoint")
-}
