@@ -13,6 +13,7 @@
 (define dl_assert (lambda (entity attr value) (begin
   (hashmap-set! dl_edb (list entity attr value) #t)
   (dl_update_indices (list entity attr value)))))
+
 (define dl_update_indices (lambda (tuple)
    (let ((entity (car tuple))
          (attr (car (cdr tuple))))
@@ -118,23 +119,3 @@
        rec ))))
    (check_keys (hashmap-keys a) b))))
 
-(define conso (lambda (a b l) (equalo (cons a b) l)))
-(define boundo (lambda (v)
-    (lambda (s/c)
-      (if (var? v)
-        (let ((x (walk v (car s/c))))
-          (if (var? x) mzero (unit s/c)))
-        (unit s/c)))))
-(define unboundo (lambda (v)
-    (lambda (s/c)
-      (if (var? v)
-        (let ((x (walk v (car s/c))))
-          (if (var? x) (unit s/c) mzero))
-        mzero))))
-(define lookupo (lambda (m key value)
-    (lambda (s/c)
-      (let ((k
-        (if (var? key)
-          (walk key (car s/c))
-          key)))
-        (let ((v (hashmap-ref m k #f))) (if v ((equalo value (hashmap-keys v)) s/c) mzero))))))
