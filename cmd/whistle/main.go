@@ -352,10 +352,26 @@ func add(p *process, env *Env, args []SExpression) (SExpression, error) {
 const ellipsis = "..."
 const underscore = "_"
 
-var macromap = map[string]transformer{
-	"let": syntaxRules("let", mustParse(`(syntax-rules ()
+var macromap = map[string]transformer{}
+
+func init() {
+	s := mustParse(`(syntax-rules ()
                                  ((_ ((var exp) ...) body1 body2 ...)
-                                   ((lambda (var ...) (begin body1 body2 ...)) exp ...)))`).AsPair()),
+                                   ((lambda (var ...) (begin body1 body2 ...)) exp ...)))`)
+	// fmt.Printf("%#v\n", s)
+	s1 := s.AsPair()
+	s2 := syntaxRules("let", s1)
+	macromap["let"] = s2
+}
+
+func mustParse(program string) SExpression {
+	p, _ := parse(program)
+	return p
+}
+
+func parse(program string) (SExpression, error) {
+	p, _, err := readFromTokens(tokenize(program))
+	return p, err
 }
 
 type transformer = func(Pair) SExpression
@@ -602,16 +618,6 @@ func Multiparse(file string) ([]SExpression, error) {
 		tokens = rem
 	}
 	return exprs, nil
-}
-
-func mustParse(program string) SExpression {
-	p, _ := parse(program)
-	return p
-}
-
-func parse(program string) (SExpression, error) {
-	p, _, err := readFromTokens(tokenize(program))
-	return p, err
 }
 
 func tokenize(s string) []string {
