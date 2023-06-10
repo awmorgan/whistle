@@ -241,10 +241,6 @@ func NewAtom(v any) Atom {
 	}}
 }
 
-func (a Atom) String() string {
-	return ""
-}
-
 type Pair struct {
 	sexpression
 	pcar SExpression
@@ -324,10 +320,6 @@ func (p Proc) builtin() BuiltinProc {
 }
 func (p Proc) defined() DefinedProc {
 	return p.value.(DefinedProc)
-}
-
-func (p Proc) String() string {
-	return "#<proc>"
 }
 
 type DefinedProc struct {
