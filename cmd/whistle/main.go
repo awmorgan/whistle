@@ -2,15 +2,19 @@ package main
 
 import (
 	_ "embed"
+	"fmt"
+	"math"
+	"math/rand"
 	"os"
-
-	"github.com/deosjr/whistle/lisp"
+	"strconv"
+	"strings"
+	"sync"
 )
 
 func main() {
 	filename := os.Args[1]
-	sexpressions, _ := lisp.ParseFile(filename)
-	l := lisp.New()
+	sexpressions, _ := ParseFile(filename)
+	l := New()
 	l.Load(datalog)
 	for _, e := range sexpressions {
 		l.EvalExpr(e)
@@ -19,3 +23,790 @@ func main() {
 
 //go:embed datalog.lisp
 var datalog string
+
+type Lisp struct {
+	process *process
+	Env     *Env
+}
+
+func New() Lisp {
+	p := newProcess()
+	env := GlobalEnv()
+	return Lisp{p, env}
+}
+
+func (l Lisp) EvalExpr(e SExpression) (SExpression, error) {
+	return l.process.evalEnv(l.Env, e)
+}
+
+// Load a string of lisp code/data into the environment.
+func (l Lisp) Load(data string) error {
+	sexprs, _ := Multiparse(data)
+	for _, def := range sexprs {
+		l.EvalExpr(def)
+	}
+	return nil
+}
+
+type Env struct {
+	dict  map[Symbol]SExpression
+	outer *Env
+}
+
+func (e *Env) find(s Symbol) (*Env, bool) {
+	if _, ok := e.dict[s]; ok {
+		return e, true
+	}
+	return e.outer.find(s)
+}
+
+func (e *Env) replace(s Symbol, sexp SExpression) bool {
+	outer, _ := e.find(s)
+	outer.dict[s] = sexp
+	return true
+}
+
+func newEnv(params Pair, args []SExpression, outer *Env) *Env {
+	m := map[Symbol]SExpression{}
+	i := 0
+	for params != empty {
+		m[params.car().AsSymbol()] = args[i]
+		params = params.cdr().AsPair()
+		i++
+	}
+	return &Env{dict: m, outer: outer}
+}
+
+func (p *process) evalEnv(env *Env, e SExpression) (SExpression, error) {
+Loop:
+	for {
+		if e.IsPair() {
+			ex, ok := expandMacro(e.AsPair())
+			if ok {
+				e = ex
+				continue Loop
+			}
+		}
+		if e.IsAtom() {
+			if e.IsSymbol() {
+				ed, _ := env.find(e.AsSymbol())
+				return ed.dict[e.AsSymbol()], nil
+			}
+			// primitive
+			return e, nil
+		}
+		// list, at which point car should be one of two things:
+		// smth evaluating to procedure, or one of a few builtin symbols (which mark builtin procedures)
+		ep := e.AsPair()
+		car := ep.car()
+		if car.IsSymbol() {
+			s := car.AsSymbol()
+			// builtin funcs that arent like other builtins:
+			// they rely on their args not being evaluated first
+			// their syntactic forms are checked at read-time
+			switch s {
+			case "begin":
+				args := ep.cdr().AsPair()
+				for args.cdr().AsPair() != empty {
+					p.evalEnv(env, args.car())
+					args = args.cdr().AsPair()
+				}
+				e = args.car()
+				continue Loop
+			case "quote":
+				return ep.cadr(), nil
+			case "define":
+				sym := ep.cadr().AsSymbol()
+				exp := ep.caddr()
+				evalled, _ := p.evalEnv(env, exp)
+				env.dict[sym] = evalled
+				return NewPrimitive(false), nil
+			case "set!":
+				sym := ep.cadr().AsSymbol()
+				exp := ep.caddr()
+				evalled, _ := p.evalEnv(env, exp)
+				// TODO: will silently fail if not found
+				// check output bool if you want a proper error
+				env.replace(sym, evalled)
+				return NewPrimitive(false), nil
+			case "define-syntax":
+				keyword := ep.cadr().AsSymbol()
+				transformer := ep.caddr().AsPair()
+				macromap[keyword] = syntaxRules(keyword, transformer)
+				return NewPrimitive(false), nil
+			case "lambda":
+				params := ep.cadr().AsPair()
+				body := ep.caddr()
+				return Proc{sexpression: sexpression{
+					value: DefinedProc{
+						params: params,
+						body:   body,
+						env:    env,
+					},
+				}}, nil
+				// default: falls through to procedure call
+			}
+		}
+		// procedure call
+		peval, _ := p.evalEnv(env, car)
+		e = peval
+		proc := e.AsProcedure()
+		pargs := ep.cdr().AsPair()
+		args := []SExpression{}
+		for pargs != empty {
+			args = append(args, pargs.car())
+			pargs = pargs.cdr().AsPair()
+		}
+		for i, arg := range args {
+			evarg, _ := p.evalEnv(env, arg)
+			args[i] = evarg
+		}
+		if proc.isBuiltin {
+			return proc.builtin()(p, env, args)
+		}
+		defproc := proc.defined()
+		env, e = newEnv(defproc.params, args, defproc.env), defproc.body
+	}
+}
+
+type SExpression interface {
+	IsSymbol() bool
+	IsNumber() bool
+	IsAtom() bool
+	IsPair() bool
+	AsSymbol() Symbol
+	AsNumber() Number
+	AsAtom() Atom
+	AsPair() Pair
+	AsProcedure() Proc //edure
+}
+
+type sexpression struct {
+	isExpression bool
+	isAtom       bool
+	isSymbol     bool
+	value        any
+}
+
+func (s sexpression) IsSymbol() bool {
+	return s.isExpression && s.isAtom && s.isSymbol
+}
+
+func (s sexpression) IsNumber() bool {
+	_, ok := s.value.(Number)
+	return ok
+}
+
+func (s sexpression) IsAtom() bool {
+	return s.isExpression && s.isAtom
+}
+
+func (s sexpression) IsPair() bool {
+	return s.isExpression && !s.isAtom
+}
+
+func (s sexpression) AsSymbol() Symbol {
+	return s.value.(Symbol)
+}
+
+func (s sexpression) AsNumber() Number {
+	return s.value.(Number)
+}
+
+func (s sexpression) AsAtom() Atom {
+	panic("not an atom")
+}
+
+func (s sexpression) AsPair() Pair {
+	panic("not a pair")
+}
+
+func (s sexpression) AsProcedure() Proc {
+	panic("not a procedure")
+}
+
+type Symbol = string
+
+func NewSymbol(s string) Atom {
+	a := NewAtom(s)
+	a.isSymbol = true
+	return a
+}
+
+type Number = float64
+
+func NewPrimitive(v any) Atom {
+	return NewAtom(v)
+}
+
+type Atom struct {
+	sexpression
+}
+
+func NewAtom(v any) Atom {
+	return Atom{sexpression{
+		isExpression: true,
+		isAtom:       true,
+		value:        v,
+	}}
+}
+
+func (a Atom) AsAtom() Atom {
+	return a
+}
+
+func (a Atom) String() string {
+	if a.IsSymbol() {
+		return a.AsSymbol()
+	}
+	// TODO: hacked bool type into Number type here!
+	if _, ok := a.value.(bool); ok {
+		return ""
+	}
+	if s, ok := a.value.(string); ok {
+		return fmt.Sprintf("%q", s)
+	}
+	if m, ok := a.value.(map[SExpression]SExpression); ok {
+		return fmt.Sprintf("%v", m)
+	}
+	return strconv.FormatFloat(a.AsNumber(), 'f', -1, 64)
+}
+
+type Pair struct {
+	sexpression
+	pcar SExpression
+	pcdr SExpression
+}
+
+func NewPair(car, cdr SExpression) Pair {
+	return Pair{
+		sexpression: sexpression{
+			isExpression: true,
+		},
+		pcar: car,
+		pcdr: cdr,
+	}
+}
+
+func (p Pair) AsPair() Pair {
+	return p
+}
+
+func (p Pair) car() SExpression {
+	return p.pcar
+}
+
+func (p Pair) cdr() SExpression {
+	return p.pcdr
+}
+
+func (p Pair) cadr() SExpression {
+	return p.cdr().AsPair().car()
+}
+
+func (p Pair) caddr() SExpression {
+	return p.cdr().AsPair().cdr().AsPair().car()
+}
+
+func (p Pair) cddr() SExpression {
+	return p.cdr().AsPair().cdr()
+}
+
+var empty Pair = NewPair(nil, nil)
+
+func list2cons(list ...SExpression) Pair {
+	if len(list) == 0 {
+		return empty
+	}
+	if len(list) == 1 {
+		return NewPair(list[0], empty)
+	}
+	cons := empty
+	for i := len(list) - 1; i >= 0; i-- {
+		cons = NewPair(list[i], cons)
+	}
+	return cons
+}
+
+func cons2list(p Pair) []SExpression {
+	list := []SExpression{}
+	for p != empty {
+		list = append(list, p.pcar)
+		p = p.pcdr.AsPair()
+	}
+	return list
+}
+
+type Proc struct {
+	sexpression
+	isBuiltin bool // user defined proc if false
+}
+
+func (p Proc) AsProcedure() Proc {
+	return p
+}
+
+func (p Proc) builtin() BuiltinProc {
+	return p.value.(BuiltinProc)
+}
+func (p Proc) defined() DefinedProc {
+	return p.value.(DefinedProc)
+}
+
+func (p Proc) String() string {
+	return "#<proc>"
+}
+
+type DefinedProc struct {
+	params Pair
+	body   SExpression
+	env    *Env
+}
+
+type BuiltinProc = func(*process, *Env, []SExpression) (SExpression, error)
+
+type ExternalProc = func([]SExpression) (SExpression, error)
+
+type process struct {
+	sync.Mutex
+	pid string
+}
+
+func newProcess() *process {
+	p := &process{
+		pid: pidFunc(),
+	}
+	go func() {
+	}()
+	return p
+}
+
+var pidFunc func() string = generatePid
+
+func generatePid() string {
+	return "<pid" + fmt.Sprint(rand.Intn(9999999999)) + ">"
+}
+
+func GlobalEnv() *Env {
+	return &Env{dict: map[Symbol]SExpression{
+		"+":            builtinFunc(add),
+		"#t":           NewPrimitive(true),
+		"#f":           NewPrimitive(false),
+		"pi":           NewPrimitive(math.Pi),
+		"newline":      NewPrimitive("\n"),
+		"make-hashmap": builtinFunc(makeHashmap),
+	}, outer: nil}
+}
+
+func builtinFunc(f BuiltinProc) Proc {
+	return Proc{
+		isBuiltin: true,
+		sexpression: sexpression{
+			value: f,
+		},
+	}
+}
+
+func add(p *process, env *Env, args []SExpression) (SExpression, error) {
+	return NewPrimitive(args[0].AsNumber() + args[1].AsNumber()), nil
+}
+
+func makeHashmap(p *process, env *Env, args []SExpression) (SExpression, error) {
+	return NewPrimitive(map[SExpression]SExpression{}), nil
+}
+
+const ellipsis = "..."
+const underscore = "_"
+
+// For now macros are always globally defined, and even shared between runtimes(!)
+var macromap = map[string]transformer{
+	// TODO: needs a 'begin' in lambda because my lambda implementation only takes 1 body
+	"let": syntaxRules("let", mustParse(`(syntax-rules ()
+                                 ((_ ((var exp) ...) body1 body2 ...)
+                                   ((lambda (var ...) (begin body1 body2 ...)) exp ...)))`).AsPair()),
+}
+
+type transformer = func(Pair) SExpression
+
+func expandMacro(p Pair) (SExpression, bool) {
+	if !p.car().IsSymbol() {
+		return p, false
+	}
+	s := p.car().AsSymbol()
+	// fmt.Printf("expandMacro: %s\n", s)
+	tf, ok := macromap[s]
+	if !ok {
+		return p, false
+	}
+	return tf(p), true
+}
+
+// assuming for now every define-syntax is followed by syntax-rules
+// NOTE: in this implementation literals denote 'symbol constants', ie symbols
+// that are not gensymmed. Both in pattern AND in template.
+// Other (proper) option is to evaluate with env, but I'm not getting into that right now.
+func syntaxRules(keyword string, sr Pair) transformer {
+	literals := []string{keyword, "lambda", "define", "begin", "#t", "#f", "if", "quote", "quasiquote", "unquote"}
+	for _, e := range cons2list(sr.cadr().AsPair()) {
+		literals = append(literals, e.AsSymbol())
+	}
+	clauses := []clause{}
+	for _, c := range cons2list(sr.cddr().AsPair()) {
+		cp := c.AsPair()
+		s := map[Symbol]Symbol{}
+		e := map[Symbol]int{}
+		p := analysePattern(literals, cp.car(), s, e)
+		t := analyseTemplate(literals, cp.cadr(), s, e)
+		clauses = append(clauses, clause{pattern: p, template: t, ellipsis: e})
+	}
+	return func(p Pair) SExpression {
+		for i, c := range clauses {
+			substitutions := map[Symbol]SExpression{}
+			fmt.Printf("in closure: clause[%d].pattern.isList: %v\n", i, c.pattern.isList)
+			unify(c.pattern, p, substitutions)
+			return substituteTemplate(c.template, substitutions, c.ellipsis)
+		}
+		return nil
+	}
+}
+
+type clause struct {
+	pattern  pattern
+	template pattern
+	ellipsis map[Symbol]int
+}
+
+type pattern struct {
+	isVariable   bool
+	isUnderscore bool
+	isLiteral    bool
+	isConstant   bool
+	isList       bool
+	hasEllipsis  bool
+	content      SExpression
+	listContent  []pattern
+}
+
+var symbolCounter int
+
+func gensym() Symbol {
+	// return Symbol("gensym" + fmt.Sprint(rand.Intn(9999999999)))
+	symbolCounter += 1
+	return Symbol(fmt.Sprintf("gensym%d", symbolCounter))
+}
+
+// build=true analyses pattern and builds up a gensym lookup table
+// build=false analyses template and substitutes pattern vars with their gensymmed counterparts
+func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build bool) pattern {
+	if p.IsSymbol() {
+		sym := p.AsSymbol()
+		if sym == underscore {
+			return pattern{isUnderscore: true}
+		}
+		for _, lit := range literals {
+			if lit == sym {
+				return pattern{isLiteral: true, content: p}
+			}
+		}
+		if build {
+			newsym := gensym()
+			gensyms[sym] = newsym
+			return pattern{isVariable: true, content: NewSymbol(newsym)}
+		}
+		newsym, ok := gensyms[sym]
+		if !ok {
+			return pattern{isVariable: true, content: p}
+		}
+		return pattern{isVariable: true, content: NewSymbol(newsym)}
+	}
+	listContent := []pattern{}
+	list := cons2list(p.AsPair())
+	for i := 0; i < len(list); i++ {
+		pi := analyse(literals, list[i], gensyms, build)
+		if i != len(list)-1 {
+			sexprj := list[i+1]
+			if sexprj.IsSymbol() && sexprj.AsSymbol() == ellipsis {
+				pi.hasEllipsis = true
+				i += 1
+			}
+		}
+		listContent = append(listContent, pi)
+	}
+	return pattern{isList: true, listContent: listContent}
+}
+
+func analysePattern(literals []string, p SExpression, gensyms map[Symbol]Symbol, ellipsis map[Symbol]int) pattern {
+	pattern := analyse(literals, p, gensyms, true)
+	analyseEllipsis(pattern, ellipsis, 0)
+	return pattern
+}
+
+func analyseTemplate(literals []string, t SExpression, gensyms map[Symbol]Symbol, ellipsis map[Symbol]int) pattern {
+	pattern := analyse(literals, t, gensyms, false)
+	verifyEllipsis(pattern, ellipsis, 0)
+	return pattern
+}
+
+// which symbols are found at which depth in ellipsis
+func analyseEllipsis(p pattern, e map[Symbol]int, depth int) {
+	if p.isVariable {
+		if depth == 0 && !p.hasEllipsis {
+			return
+		}
+		ps := p.content.AsSymbol()
+		if p.hasEllipsis {
+			depth++
+		}
+		e[ps] = depth
+		return
+	}
+	if !p.isList {
+		return
+	}
+	newdepth := depth
+	if p.hasEllipsis {
+		newdepth++
+	}
+	for _, pp := range p.listContent {
+		analyseEllipsis(pp, e, newdepth)
+	}
+}
+
+// verifying ellipsis vars
+func verifyEllipsis(p pattern, e map[Symbol]int, depth int) bool {
+	if p.isVariable {
+		ps := p.content.AsSymbol()
+		d, ok := e[ps]
+		if !ok {
+			return true
+		}
+		if p.hasEllipsis {
+			depth++
+		}
+		return d == depth
+	}
+	if !p.isList {
+		return true
+	}
+	newdepth := depth
+	if p.hasEllipsis {
+		newdepth++
+	}
+	for _, pp := range p.listContent {
+		verifyEllipsis(pp, e, newdepth)
+	}
+	return true
+}
+
+// matching pattern to input, returning substitutions needed for valid unification if any
+// TODO: for now, all symbols are pattern variables
+// NOTE: this has become less unification since duplicate pattern vars are not allowed, rename?
+func unify(p pattern, q SExpression, s map[Symbol]SExpression) bool {
+	return unifyWithEllipsis(p, q, s, []int{})
+}
+
+var counter int
+
+func unifyWithEllipsis(p pattern, q SExpression, s map[Symbol]SExpression, depth []int) bool {
+	// issue is p.isList is false here instead of true when counter is 4
+	counter++
+	if counter == 4 {
+	}
+	if p.isUnderscore {
+		return true
+	}
+	if p.isVariable {
+		ps := p.content.AsSymbol()
+		for i := 0; i < len(depth); i++ {
+			ps += fmt.Sprintf("#%d", depth[i])
+		}
+		s[ps] = q
+		return true
+	}
+	if !p.isList {
+		panic("pattern assumed to be list")
+	}
+	qp := q.AsPair()
+Loop:
+	for _, pp := range p.listContent {
+		if !pp.hasEllipsis {
+			unifyWithEllipsis(pp, qp.car(), s, depth)
+			qp = qp.cdr().AsPair()
+			continue Loop
+		}
+		newdepth := make([]int, len(depth))
+		copy(newdepth, depth)
+		newdepth = append(newdepth, 0)
+		for {
+			if qp == empty {
+				continue Loop
+			}
+			unifyWithEllipsis(pp, qp.car(), s, newdepth)
+			newdepth[len(newdepth)-1] = newdepth[len(newdepth)-1] + 1
+			qp = qp.cdr().AsPair()
+		}
+	}
+	return qp == empty
+}
+
+func substituteTemplate(template pattern, substitutions map[Symbol]SExpression, ellipsis map[Symbol]int) SExpression {
+	sexpr, _ := substituteTemplateWithEllipsis(template, substitutions, ellipsis, []int{})
+	return sexpr
+}
+
+func substituteTemplateWithEllipsis(template pattern, substitutions map[Symbol]SExpression, e map[Symbol]int, depth []int) (SExpression, bool) {
+	if template.isLiteral {
+		return template.content, false
+	}
+	if template.isVariable {
+		ss := template.content.AsSymbol()
+		_, isEllipsis := e[ss]
+		for i := 0; i < len(depth); i++ {
+			ss += fmt.Sprintf("#%d", depth[i])
+		}
+		s, ok := substitutions[ss]
+		if ok {
+			// the found variable is an ellipsis var and we have found a substitution for it at this repeat
+			// OR the found variable is a toplevel pattern var without ellipsis
+			return s, isEllipsis
+		}
+		// the found variable is an ellipsis var, but we fail to find a repeat match
+		if isEllipsis {
+			return template.content, false
+		}
+		// OR the found variable is a pattern var without subsitutions and no ellipsis
+		ss = template.content.AsSymbol()
+		s, ok = substitutions[ss]
+		if ok {
+			return s, false
+		}
+		newsym := NewSymbol(gensym())
+		substitutions[ss] = newsym
+		return newsym, false
+	}
+	out := []SExpression{}
+	found := false
+	for _, v := range template.listContent {
+		if !v.hasEllipsis {
+			sexpr, ok := substituteTemplateWithEllipsis(v, substitutions, e, depth)
+			found = found || ok
+			out = append(out, sexpr)
+			continue
+		}
+		// attempt to substitute using depth until failure
+		// we stop when recursion does not match a single ellipsis variable
+		newdepth := make([]int, len(depth))
+		copy(newdepth, depth)
+		newdepth = append(newdepth, 0)
+		i := 0
+		for {
+			sexpr, ok := substituteTemplateWithEllipsis(v, substitutions, e, newdepth)
+			if !ok {
+				break
+			}
+			out = append(out, sexpr)
+			newdepth[len(newdepth)-1] = newdepth[len(newdepth)-1] + 1
+			i++
+		}
+		found = found || (i != 0)
+	}
+	return list2cons(out...), found
+}
+
+func ParseFile(filename string) ([]SExpression, error) {
+	b, _ := os.ReadFile(filename)
+	return Multiparse(string(b))
+}
+
+func Multiparse(file string) ([]SExpression, error) {
+	tokens := tokenize(file)
+	exprs := []SExpression{}
+	for len(tokens) > 0 {
+		e, rem, _ := readFromTokens(tokens)
+		exprs = append(exprs, e)
+		tokens = rem
+	}
+	return exprs, nil
+}
+
+func mustParse(program string) SExpression {
+	p, _ := parse(program)
+	return p
+}
+
+func parse(program string) (SExpression, error) {
+	s := tokenize(program)
+	p, _, err := readFromTokens(s)
+	return p, err
+}
+
+func tokenize(s string) []string {
+	s = strings.ReplaceAll(s, "[", "(")
+	s = strings.ReplaceAll(s, "]", ")")
+	s = strings.ReplaceAll(s, "(", " ( ")
+	s = strings.ReplaceAll(s, ")", " ) ")
+	tokenized := []string{}
+	fields := strings.Fields(s)
+	// pasting string escaped stuff back together..
+	str := ""
+	comment := false
+	for i := 0; i < len(fields); i++ {
+		ss := fields[i]
+		if len(str) == 0 && ss == "#|" {
+			comment = true
+			continue
+		}
+		if len(str) == 0 && comment && ss == "|#" {
+			comment = false
+			continue
+		}
+		if comment {
+			continue
+		}
+		if len(str) == 0 && strings.HasPrefix(ss, `"`) {
+			if len(ss) > 1 && strings.HasSuffix(ss, `"`) {
+				tokenized = append(tokenized, ss)
+				continue
+			}
+		}
+		tokenized = append(tokenized, ss)
+	}
+	return tokenized
+}
+
+func readFromTokens(tokens []string) (SExpression, []string, error) {
+	token := tokens[0]
+	tokens = tokens[1:]
+	switch token {
+	case "(":
+		list := []SExpression{}
+		for tokens[0] != ")" {
+			parsed, t, _ := readFromTokens(tokens)
+			tokens = t
+			list = append(list, parsed)
+		}
+		return list2cons(list...), tokens[1:], nil
+	default:
+		return atom(token), tokens, nil
+	}
+}
+
+func atom(token string) SExpression {
+	if n, err := strconv.ParseFloat(token, 64); err == nil {
+		return NewPrimitive(n)
+	}
+	if token[0] == token[len(token)-1] && token[0] == '"' {
+		return NewPrimitive(token[1 : len(token)-1])
+	}
+	// TODO unquote syntax only works on symbols, not lists atm!
+	if token[0] == ',' {
+		unquote, _, _ := readFromTokens([]string{"(", "unquote", token[1:], ")"})
+		return unquote
+	}
+	// TODO quote syntax only works on symbols, not lists atm!
+	if token[0] == '\'' {
+		quote, _, _ := readFromTokens([]string{"(", "quote", token[1:], ")"})
+		return quote
+	}
+	return NewSymbol(token)
+}
