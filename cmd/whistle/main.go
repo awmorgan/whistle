@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"strconv"
 	"strings"
 )
@@ -332,8 +331,9 @@ type process struct {
 }
 
 func newProcess() *process {
+	fmt.Println("new process")
 	p := &process{
-		pid: "<pid" + fmt.Sprint(rand.Intn(9999999999)) + ">",
+		pid: "<pid1>",
 	}
 	return p
 }
@@ -381,7 +381,7 @@ func expandMacro(p Pair) (SExpression, bool) {
 }
 
 func syntaxRules(keyword string, sr Pair) transformer {
-	literals := []string{keyword, "lambda", "define", "begin", "#t", "#f", "if", "quote", "quasiquote", "unquote"}
+	literals := []string{keyword, "lambda", "define", "begin"}
 	for _, e := range cons2list(sr.cadr().AsPair()) {
 		literals = append(literals, e.AsSymbol())
 	}
@@ -624,8 +624,6 @@ func parse(program string) (SExpression, error) {
 }
 
 func tokenize(s string) []string {
-	s = strings.ReplaceAll(s, "[", "(")
-	s = strings.ReplaceAll(s, "]", ")")
 	s = strings.ReplaceAll(s, "(", " ( ")
 	s = strings.ReplaceAll(s, ")", " ) ")
 	tokenized := []string{}
