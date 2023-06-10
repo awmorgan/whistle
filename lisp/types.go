@@ -8,7 +8,6 @@ import (
 
 type SExpression interface {
 	IsSymbol() bool
-	IsPrimitive() bool
 	IsNumber() bool
 	IsAtom() bool
 	IsPair() bool
@@ -32,10 +31,6 @@ type sexpression struct {
 
 func (s sexpression) IsSymbol() bool {
 	return s.isExpression && s.isAtom && s.isSymbol
-}
-
-func (s sexpression) IsPrimitive() bool {
-	return s.isExpression && s.isAtom && !s.isSymbol
 }
 
 func (s sexpression) IsNumber() bool {
@@ -228,15 +223,9 @@ func (p Proc) AsProcedure() Proc {
 }
 
 func (p Proc) builtin() BuiltinProc {
-	if p.isBuiltin == false {
-		panic("not a builtin proc")
-	}
 	return p.value.(BuiltinProc)
 }
 func (p Proc) defined() DefinedProc {
-	if p.isBuiltin {
-		panic("not a userdefined proc")
-	}
 	return p.value.(DefinedProc)
 }
 
@@ -254,4 +243,3 @@ type BuiltinProc = func(*process, *Env, []SExpression) (SExpression, error)
 
 // for use outside of lisp package, since process shouldnt be exported
 type ExternalProc = func([]SExpression) (SExpression, error)
-
