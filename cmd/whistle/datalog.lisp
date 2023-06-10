@@ -58,21 +58,3 @@
        [(pair? x) (append (dl_vars x) acc)]
        [else acc])) l (quote ())))))
 
-(define-syntax dl_rule
-   (syntax-rules (list dl_assert_rule :-)
-     ((_ (head hx hy) :- (body bx by) ...)
-      (dl_assert_rule (quote (hx head hy)) (list (quote (bx body by)) ...)))))
-
-(define dl_assert_rule (lambda (head body)
-  (set! dl_rdb (cons (cons head body) dl_rdb))))
-
-(define dl_fixpoint (lambda () (begin
-    (set! dl_idb (make-hashmap))
-    (dl_fixpoint_iterate))))
-
-(define dl_fixpoint_iterate (lambda ()
-   (let ((new (hashmap-keys (set_difference (foldl (lambda (x y) (set-extend! y x)) (map dl_apply_rule dl_rdb) (make-hashmap)) dl_idb))))
-     (set-extend! dl_idb new)
-     (map dl_update_indices new)
-     (if (not (null? new)) (dl_fixpoint_iterate)))))
-
