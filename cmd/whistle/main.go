@@ -620,13 +620,8 @@ func parse(program string) (SExpression, error) {
 func tokenize(s string) []string {
 	s = strings.ReplaceAll(s, "(", " ( ")
 	s = strings.ReplaceAll(s, ")", " ) ")
-	tokenized := []string{}
 	fields := strings.Fields(s)
-	for i := 0; i < len(fields); i++ {
-		ss := fields[i]
-		tokenized = append(tokenized, ss)
-	}
-	return tokenized
+	return append([]string{}, fields...)
 }
 
 func readFromTokens(tokens []string) (SExpression, []string, error) {
