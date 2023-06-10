@@ -479,7 +479,6 @@ func analysePattern(literals []string, p SExpression, gensyms map[Symbol]Symbol,
 
 func analyseTemplate(literals []string, t SExpression, gensyms map[Symbol]Symbol, ellipsis map[Symbol]int) pattern {
 	pattern := analyse(literals, t, gensyms, false)
-	verifyEllipsis(pattern, ellipsis, 0)
 	return pattern
 }
 
@@ -505,31 +504,6 @@ func analyseEllipsis(p pattern, e map[Symbol]int, depth int) {
 	for _, pp := range p.listContent {
 		analyseEllipsis(pp, e, newdepth)
 	}
-}
-
-func verifyEllipsis(p pattern, e map[Symbol]int, depth int) bool {
-	if p.isVariable {
-		ps := p.content.AsSymbol()
-		d, ok := e[ps]
-		if !ok {
-			return true
-		}
-		if p.hasEllipsis {
-			depth++
-		}
-		return d == depth
-	}
-	if !p.isList {
-		return true
-	}
-	newdepth := depth
-	if p.hasEllipsis {
-		newdepth++
-	}
-	for _, pp := range p.listContent {
-		verifyEllipsis(pp, e, newdepth)
-	}
-	return true
 }
 
 func unify(p pattern, q SExpression, s map[Symbol]SExpression) bool {
