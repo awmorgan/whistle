@@ -47,7 +47,6 @@ func (l Lisp) EvalExpr(e SExpression) (SExpression, error) {
 	return l.process.evalEnv(l.Env, e)
 }
 
-// Load a string of lisp code/data into the environment.
 func (l Lisp) Load(data string) error {
 	sexprs, _ := Multiparse(data)
 	for _, def := range sexprs {
@@ -329,8 +328,6 @@ type DefinedProc struct {
 }
 
 type BuiltinProc = func(*process, *Env, []SExpression) (SExpression, error)
-
-type ExternalProc = func([]SExpression) (SExpression, error)
 
 type process struct {
 	pid string
