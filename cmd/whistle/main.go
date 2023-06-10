@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -103,18 +102,12 @@ Loop:
 				ed, _ := env.find(e.AsSymbol())
 				return ed.dict[e.AsSymbol()], nil
 			}
-			// primitive
 			return e, nil
 		}
-		// list, at which point car should be one of two things:
-		// smth evaluating to procedure, or one of a few builtin symbols (which mark builtin procedures)
 		ep := e.AsPair()
 		car := ep.car()
 		if car.IsSymbol() {
 			s := car.AsSymbol()
-			// builtin funcs that arent like other builtins:
-			// they rely on their args not being evaluated first
-			// their syntactic forms are checked at read-time
 			switch s {
 			case "begin":
 				args := ep.cdr().AsPair()
@@ -134,8 +127,6 @@ Loop:
 				sym := ep.cadr().AsSymbol()
 				exp := ep.caddr()
 				evalled, _ := p.evalEnv(env, exp)
-				// TODO: will silently fail if not found
-				// check output bool if you want a proper error
 				env.replace(sym, evalled)
 				return NewPrimitive(false), nil
 			case "define-syntax":
@@ -153,10 +144,8 @@ Loop:
 						env:    env,
 					},
 				}}, nil
-				// default: falls through to procedure call
 			}
 		}
-		// procedure call
 		peval, _ := p.evalEnv(env, car)
 		e = peval
 		proc := e.AsProcedure()
@@ -185,9 +174,8 @@ type SExpression interface {
 	IsPair() bool
 	AsSymbol() Symbol
 	AsNumber() Number
-	AsAtom() Atom
 	AsPair() Pair
-	AsProcedure() Proc //edure
+	AsProcedure() Proc
 }
 
 type sexpression struct {
@@ -219,10 +207,6 @@ func (s sexpression) AsSymbol() Symbol {
 
 func (s sexpression) AsNumber() Number {
 	return s.value.(Number)
-}
-
-func (s sexpression) AsAtom() Atom {
-	return Atom{}
 }
 
 func (s sexpression) AsPair() Pair {
@@ -257,10 +241,6 @@ func NewAtom(v any) Atom {
 		isAtom:       true,
 		value:        v,
 	}}
-}
-
-func (a Atom) AsAtom() Atom {
-	return Atom{}
 }
 
 func (a Atom) String() string {
@@ -686,11 +666,6 @@ func substituteTemplateWithEllipsis(template pattern, substitutions map[Symbol]S
 	return list2cons(out...), found
 }
 
-func ParseFile(filename string) ([]SExpression, error) {
-	b, _ := os.ReadFile(filename)
-	return Multiparse(string(b))
-}
-
 func Multiparse(file string) ([]SExpression, error) {
 	tokens := tokenize(file)
 	exprs := []SExpression{}
@@ -720,7 +695,6 @@ func tokenize(s string) []string {
 	s = strings.ReplaceAll(s, ")", " ) ")
 	tokenized := []string{}
 	fields := strings.Fields(s)
-	// pasting string escaped stuff back together..
 	str := ""
 	comment := false
 	for i := 0; i < len(fields); i++ {
