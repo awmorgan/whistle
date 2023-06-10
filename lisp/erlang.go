@@ -8,15 +8,10 @@ import (
 
 type process struct {
 	sync.Mutex
-	pid     string
-	mailbox []SExpression
-	err     error
-	trapExit             bool
+	pid string
 }
 
 type processError struct {
-	err error
-	pid string
 }
 
 func newProcess() *process {
@@ -29,26 +24,6 @@ func newProcess() *process {
 	errchannels[p.pid] = errch
 	processlinks[p.pid] = map[string]struct{}{}
 	go func() {
-		for {
-			select {
-			case msg := <-ch:
-				p.Lock()
-				p.mailbox = append(p.mailbox, msg)
-				p.Unlock()
-			case perr := <-errch:
-				if p.trapExit && perr.pid != p.pid {
-					go func() {
-						ch <- list2cons(NewSymbol("EXIT"), NewSymbol(perr.pid), NewPrimitive(perr.err.Error()))
-					}()
-					continue
-				}
-				p.err = perr.err
-				for link := range processlinks[p.pid] {
-					errchannels[link] <- perr
-				}
-				return
-			}
-		}
 	}()
 	return p
 }

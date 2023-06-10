@@ -110,10 +110,7 @@ Loop:
 			pargs = pargs.cdr().AsPair()
 		}
 		for i, arg := range args {
-			evarg, err := p.evalEnv(env, arg)
-			if err != nil {
-				return nil, err
-			}
+			evarg, _ := p.evalEnv(env, arg)
 			args[i] = evarg
 		}
 		if proc.isBuiltin {
