@@ -70,6 +70,9 @@ func syntaxRules(keyword string, sr Pair) transformer {
 	return func(p Pair) SExpression {
 		for _, c := range clauses {
 			substitutions := map[Symbol]SExpression{}
+			if counter == 3 {
+				fmt.Println("here: ", c.pattern.isList)
+			}
 			if !unify(c.pattern, p, substitutions) {
 				continue
 			}
