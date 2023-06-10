@@ -147,26 +147,11 @@ func (p Pair) caddr() SExpression {
 	return p.cdr().AsPair().cdr().AsPair().car()
 }
 
-func (p Pair) cadddr() SExpression {
-	return p.cdr().AsPair().cdr().AsPair().cdr().AsPair().car()
-}
-
 func (p Pair) cddr() SExpression {
 	return p.cdr().AsPair().cdr()
 }
 
 var empty Pair = NewPair(nil, nil)
-
-func MakeConsList(list []SExpression) Pair {
-	return list2cons(list...)
-}
-
-func UnpackConsList(s SExpression) ([]SExpression, error) {
-	if !s.IsPair() {
-		return nil, fmt.Errorf("not a pair")
-	}
-	return cons2list(s.AsPair()), nil
-}
 
 func list2cons(list ...SExpression) Pair {
 	if len(list) == 0 {
