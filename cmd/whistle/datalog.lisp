@@ -98,24 +98,3 @@
 (define append (lambda (a b)
    (if (null? b) a (append (cons (car b) a) (cdr b)))))
 
-(define member? (lambda (l x)
-   (cond
-     [(null? l) #f]
-     [(eqv? (car l) x) #t]
-     [else (member? (cdr l) x)])))
-
-(define list->set (lambda (x) (begin
-   (define list->set_ (lambda (a b)
-     (cond
-       [(null? a) b]
-       [(member? b (car a)) (list->set_ (cdr a) b)]
-       [else (list->set_ (cdr a) (cons (car a) b))])))
-   (list->set_ x (quote ())))))
-
-(define set_difference (lambda (a b) (begin
-   (define check_keys (lambda (k m)
-     (if (null? k) (make-hashmap) (let ((rec (check_keys (cdr k) m)))
-       (if (not (hashmap-ref m (car k) #f)) (hashmap-set! rec (car k) #t))
-       rec ))))
-   (check_keys (hashmap-keys a) b))))
-
