@@ -1,7 +1,6 @@
 package main
 
 import (
-	_ "embed"
 	"fmt"
 	"math"
 	"math/rand"
@@ -12,8 +11,7 @@ import (
 )
 
 func main() {
-	filename := os.Args[1]
-	sexpressions, _ := ParseFile(filename)
+	sexpressions, _ := Multiparse("(define a (dl_record 'vertex))")
 	l := New()
 	l.Load(datalog)
 	for _, e := range sexpressions {
@@ -21,8 +19,21 @@ func main() {
 	}
 }
 
-//go:embed datalog.lisp
-var datalog string
+var datalog string = `
+(define dl_counter 0)
+(define dl_nextID (lambda () (begin
+   (set! dl_counter (+ dl_counter 1))
+   dl_counter)))
+
+(define dl_assert (lambda (entity attr value) (begin
+  (hashmap-set! dl_edb (list entity attr value) #t)
+  (dl_update_indices (list entity attr value)))))
+
+(define-syntax dl_record
+   (syntax-rules (list let dl_nextID dl_assert)
+     ((_ type (attr value) ...) (let ((id (dl_nextID)))
+       (dl_assert id (list type attr) value) ... id))))
+`
 
 type Lisp struct {
 	process *process
