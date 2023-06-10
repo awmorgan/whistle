@@ -255,15 +255,3 @@ type BuiltinProc = func(*process, *Env, []SExpression) (SExpression, error)
 // for use outside of lisp package, since process shouldnt be exported
 type ExternalProc = func([]SExpression) (SExpression, error)
 
-func boolean(e SExpression) bool {
-	return e.AsAtom().value.(bool)
-}
-
-func isTruthy(x SExpression) bool {
-	if x.IsAtom() {
-		if b, ok := x.AsAtom().value.(bool); ok {
-			return b
-		}
-	}
-	return true
-}
