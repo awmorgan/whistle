@@ -10,8 +10,6 @@ const underscore = "_"
 
 // For now macros are always globally defined, and even shared between runtimes(!)
 var macromap = map[string]transformer{
-	// TODO: needs implementation of literals in macro rules
-	"cond": transformer_cond,
 	// TODO: needs a 'begin' in lambda because my lambda implementation only takes 1 body
 	"let": syntaxRules("let", mustParse(`(syntax-rules ()
                                  ((_ ((var exp) ...) body1 body2 ...)
@@ -239,22 +237,11 @@ func unifyWithEllipsis(p pattern, q SExpression, s map[Symbol]SExpression, depth
 	if !p.isList {
 		panic("pattern assumed to be list")
 	}
-	if !q.IsPair() {
-		return false
-	}
 	qp := q.AsPair()
 Loop:
 	for _, pp := range p.listContent {
 		if !pp.hasEllipsis {
-			if qp == empty {
-				return false
-			}
-			if counter == 3 {
-				fmt.Println("2: pp.isList: ", pp.isList)
-			}
-			if !unifyWithEllipsis(pp, qp.car(), s, depth) {
-				return false
-			}
+			unifyWithEllipsis(pp, qp.car(), s, depth)
 			qp = qp.cdr().AsPair()
 			continue Loop
 		}
@@ -265,15 +252,7 @@ Loop:
 			if qp == empty {
 				continue Loop
 			}
-			if counter == 3 {
-				fmt.Println("3: pp.isList: ", pp.isList)
-			}
-			ok := unifyWithEllipsis(pp, qp.car(), s, newdepth)
-			// TODO: scary bug waiting to happen where s contains partial substitution
-			// but the full substitution has failed.. needs map copying to fix?
-			if !ok {
-				continue Loop
-			}
+			unifyWithEllipsis(pp, qp.car(), s, newdepth)
 			newdepth[len(newdepth)-1] = newdepth[len(newdepth)-1] + 1
 			qp = qp.cdr().AsPair()
 		}
@@ -287,9 +266,6 @@ func substituteTemplate(template pattern, substitutions map[Symbol]SExpression, 
 }
 
 func substituteTemplateWithEllipsis(template pattern, substitutions map[Symbol]SExpression, e map[Symbol]int, depth []int) (SExpression, bool) {
-	if template.isConstant {
-		return template.content, false
-	}
 	if template.isLiteral {
 		return template.content, false
 	}
@@ -301,9 +277,6 @@ func substituteTemplateWithEllipsis(template pattern, substitutions map[Symbol]S
 		}
 		s, ok := substitutions[ss]
 		if ok {
-			if isEllipsis && len(depth) == 0 {
-				panic("impossible")
-			}
 			// the found variable is an ellipsis var and we have found a substitution for it at this repeat
 			// OR the found variable is a toplevel pattern var without ellipsis
 			return s, isEllipsis
@@ -353,37 +326,3 @@ func substituteTemplateWithEllipsis(template pattern, substitutions map[Symbol]S
 	}
 	return list2cons(out...), found
 }
-
-func transformer_cond(p Pair) SExpression {
-	var expanded SExpression
-	expanded = NewPrimitive(false)
-	clauses := cons2list(p.cdr().AsPair())
-	for i := len(clauses) - 1; i >= 0; i-- {
-		clause := clauses[i].AsPair()
-		cond := clause.car()
-		if cond.IsAtom() {
-			if cond.AsSymbol() != "else" {
-				panic("expected else")
-			}
-			if i != len(clauses)-1 {
-				panic("else is not last in cond")
-			}
-			expanded = clause.cadr()
-			continue
-		}
-		begin := []SExpression{NewSymbol("begin")}
-		clause = clause.cdr().AsPair()
-		for clause != empty {
-			begin = append(begin, clause.car())
-			clause = clause.cdr().AsPair()
-		}
-		expanded = list2cons(
-			NewSymbol("if"),
-			cond,
-			list2cons(begin...),
-			expanded,
-		)
-	}
-	return expanded.AsPair()
-}
-
