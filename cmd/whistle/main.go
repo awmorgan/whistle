@@ -76,7 +76,7 @@ func (e *Env) replace(s Symbol, sexp SExpression) bool {
 func newEnv(params Pair, args []SExpression, outer *Env) *Env {
 	m := map[Symbol]SExpression{}
 	i := 0
-	for params != empty {
+	for params != NewPair(nil, nil) {
 		m[params.car().AsSymbol()] = args[i]
 		params = params.cdr().AsPair()
 		i++
@@ -108,7 +108,7 @@ Loop:
 			switch s {
 			case "begin":
 				args := ep.cdr().AsPair()
-				for args.cdr().AsPair() != empty {
+				for args.cdr().AsPair() != NewPair(nil, nil) {
 					p.evalEnv(env, args.car())
 					args = args.cdr().AsPair()
 				}
@@ -148,7 +148,7 @@ Loop:
 		proc := e.AsProcedure()
 		pargs := ep.cdr().AsPair()
 		args := []SExpression{}
-		for pargs != empty {
+		for pargs != NewPair(nil, nil) {
 			args = append(args, pargs.car())
 			pargs = pargs.cdr().AsPair()
 		}
@@ -280,16 +280,14 @@ func (p Pair) cddr() SExpression {
 	return p.cdr().AsPair().cdr()
 }
 
-var empty Pair = NewPair(nil, nil)
-
 func list2cons(list ...SExpression) Pair {
 	if len(list) == 0 {
-		return empty
+		return NewPair(nil, nil)
 	}
 	if len(list) == 1 {
-		return NewPair(list[0], empty)
+		return NewPair(list[0], NewPair(nil, nil))
 	}
-	cons := empty
+	cons := NewPair(nil, nil)
 	for i := len(list) - 1; i >= 0; i-- {
 		cons = NewPair(list[i], cons)
 	}
@@ -298,7 +296,7 @@ func list2cons(list ...SExpression) Pair {
 
 func cons2list(p Pair) []SExpression {
 	list := []SExpression{}
-	for p != empty {
+	for p != NewPair(nil, nil) {
 		list = append(list, p.pcar)
 		p = p.pcdr.AsPair()
 	}
@@ -534,7 +532,7 @@ Loop:
 		copy(newdepth, depth)
 		newdepth = append(newdepth, 0)
 		for {
-			if qp == empty {
+			if qp == NewPair(nil, nil) {
 				continue Loop
 			}
 			unifyWithEllipsis(pp, qp.car(), s, newdepth)
@@ -542,7 +540,7 @@ Loop:
 			qp = qp.cdr().AsPair()
 		}
 	}
-	return qp == empty
+	return qp == NewPair(nil, nil)
 }
 
 func substituteTemplate(template pattern, substitutions map[Symbol]SExpression, ellipsis map[Symbol]int) SExpression {
