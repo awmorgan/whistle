@@ -8,7 +8,7 @@ import (
 
 func main() {
 	sexpressions, _ := Multiparse("(define a (dl_record 'vertex))")
-	l := New()
+	l := Lisp{newProcess(), GlobalEnv()}
 	l.Load(datalog)
 	for _, e := range sexpressions {
 		l.EvalExpr(e)
@@ -34,12 +34,6 @@ var datalog string = `
 type Lisp struct {
 	process *process
 	Env     *Env
-}
-
-func New() Lisp {
-	p := newProcess()
-	env := GlobalEnv()
-	return Lisp{p, env}
 }
 
 func (l Lisp) EvalExpr(e SExpression) (SExpression, error) {
