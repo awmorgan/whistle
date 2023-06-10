@@ -57,14 +57,9 @@ func syntaxRules(keyword string, sr Pair) transformer {
 		t := analyseTemplate(literals, cp.cadr(), s, e)
 		clauses = append(clauses, clause{pattern: p, template: t, ellipsis: e})
 	}
-	fmt.Printf("len(clauses): %d\n", len(clauses))
-	for i, c := range clauses {
-		fmt.Printf("before: clause[%d].pattern.isList: %v\n", i, c.pattern.isList)
-	}
 	return func(p Pair) SExpression {
 		for i, c := range clauses {
 			substitutions := map[Symbol]SExpression{}
-			fmt.Printf("len(clauses): %d\n", len(clauses))
 			fmt.Printf("in closure: clause[%d].pattern.isList: %v\n", i, c.pattern.isList)
 			if !unify(c.pattern, p, substitutions) {
 				continue
