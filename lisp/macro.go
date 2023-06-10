@@ -2,7 +2,6 @@ package lisp
 
 import (
 	"fmt"
-	"reflect"
 )
 
 const ellipsis = "..."
@@ -36,14 +35,8 @@ func expandMacro(p Pair) (SExpression, bool) {
 // that are not gensymmed. Both in pattern AND in template.
 // Other (proper) option is to evaluate with env, but I'm not getting into that right now.
 func syntaxRules(keyword string, sr Pair) transformer {
-	if sr.car().AsSymbol() != "syntax-rules" {
-		panic("expected syntax-rules")
-	}
 	literals := []string{keyword, "lambda", "define", "begin", "#t", "#f", "if", "quote", "quasiquote", "unquote"}
 	for _, e := range cons2list(sr.cadr().AsPair()) {
-		if !e.IsSymbol() {
-			panic(fmt.Sprintf("invalid syntax %s", sr))
-		}
 		literals = append(literals, e.AsSymbol())
 	}
 	clauses := []clause{}
@@ -59,12 +52,10 @@ func syntaxRules(keyword string, sr Pair) transformer {
 		for i, c := range clauses {
 			substitutions := map[Symbol]SExpression{}
 			fmt.Printf("in closure: clause[%d].pattern.isList: %v\n", i, c.pattern.isList)
-			if !unify(c.pattern, p, substitutions) {
-				continue
-			}
+			unify(c.pattern, p, substitutions)
 			return substituteTemplate(c.template, substitutions, c.ellipsis)
 		}
-		panic(fmt.Sprintf("invalid syntax %s", p))
+		return nil
 	}
 }
 
@@ -144,9 +135,7 @@ func analysePattern(literals []string, p SExpression, gensyms map[Symbol]Symbol,
 
 func analyseTemplate(literals []string, t SExpression, gensyms map[Symbol]Symbol, ellipsis map[Symbol]int) pattern {
 	pattern := analyse(literals, t, gensyms, false)
-	if !verifyEllipsis(pattern, ellipsis, 0) {
-		panic("nonmatching ellipsis")
-	}
+	verifyEllipsis(pattern, ellipsis, 0)
 	return pattern
 }
 
@@ -196,9 +185,7 @@ func verifyEllipsis(p pattern, e map[Symbol]int, depth int) bool {
 		newdepth++
 	}
 	for _, pp := range p.listContent {
-		if ok := verifyEllipsis(pp, e, newdepth); !ok {
-			return false
-		}
+		verifyEllipsis(pp, e, newdepth)
 	}
 	return true
 }
@@ -220,16 +207,10 @@ func unifyWithEllipsis(p pattern, q SExpression, s map[Symbol]SExpression, depth
 	if p.isUnderscore {
 		return true
 	}
-	if p.isConstant || p.isLiteral {
-		return reflect.DeepEqual(p.content, q)
-	}
 	if p.isVariable {
 		ps := p.content.AsSymbol()
 		for i := 0; i < len(depth); i++ {
 			ps += fmt.Sprintf("#%d", depth[i])
-		}
-		if _, ok := s[ps]; ok {
-			panic("duplicate pattern var")
 		}
 		s[ps] = q
 		return true
@@ -294,9 +275,6 @@ func substituteTemplateWithEllipsis(template pattern, substitutions map[Symbol]S
 		newsym := NewSymbol(gensym())
 		substitutions[ss] = newsym
 		return newsym, false
-	}
-	if !template.isList {
-		panic("template assumed to be list")
 	}
 	out := []SExpression{}
 	found := false
