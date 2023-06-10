@@ -76,25 +76,3 @@
      (map dl_update_indices new)
      (if (not (null? new)) (dl_fixpoint_iterate)))))
 
-(define dl_apply_rule (lambda (rule)
-   (let ((head (car rule))
-         (body (cdr rule)))
-     (eval (quasiquote (dl_find ,head where ,body))))))
-
-(define set-extend! (lambda (m keys)
-   (if (null? keys) m (begin (hashmap-set! m (car keys) #t) (set-extend! m (cdr keys))))))
-
-(define membero (lambda (x l)
-   (fresh (a d)
-     (equalo (cons a d) l)
-     (conde
-       [(equalo a x)]
-       [(membero x d)]))))
-
-(define foldl (lambda (f l acc)
-   (if (null? l) acc
-     (foldl f (cdr l) (f (car l) acc)))))
-
-(define append (lambda (a b)
-   (if (null? b) a (append (cons (car b) a) (cdr b)))))
-
