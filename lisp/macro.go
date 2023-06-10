@@ -16,17 +16,6 @@ var macromap = map[string]transformer{
 	"let": syntaxRules("let", mustParse(`(syntax-rules ()
                                  ((_ ((var exp) ...) body1 body2 ...)
                                    ((lambda (var ...) (begin body1 body2 ...)) exp ...)))`).AsPair()),
-	// "and": syntaxRules("and", mustParse(`(syntax-rules ()
-    //                              ((_) #t)
-    //                              ((_ e) e)
-    //                              ((_ e1 e2 e3 ...) (if e1 (and e2 e3 ...) #f)))`).AsPair()),
-	// "list": syntaxRules("list", mustParse(`(syntax-rules (cons quote)
-    //                              ((_) (quote ()))
-    //                              ((_ a b ...) (cons a (list b ...))))`).AsPair()),
-	// "quasiquote": syntaxRules("quasiquote", mustParse(`(syntax-rules (unquote cons)
-    //                              ((_ (unquote d)) d)
-    //                              ((_ (d1 d2 ...)) (cons (quasiquote d1) (quasiquote (d2 ...))))
-    //                              ((_ d) (quote d)))`).AsPair()),
 }
 
 type transformer = func(Pair) SExpression
