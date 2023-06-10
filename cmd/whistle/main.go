@@ -124,8 +124,6 @@ Loop:
 				}
 				e = args.car()
 				continue Loop
-			case "quote":
-				return ep.cadr(), nil
 			case "define":
 				sym := ep.cadr().AsSymbol()
 				exp := ep.caddr()
@@ -204,8 +202,7 @@ func (s sexpression) IsSymbol() bool {
 }
 
 func (s sexpression) IsNumber() bool {
-	_, ok := s.value.(Number)
-	return ok
+	return false
 }
 
 func (s sexpression) IsAtom() bool {
@@ -225,15 +222,15 @@ func (s sexpression) AsNumber() Number {
 }
 
 func (s sexpression) AsAtom() Atom {
-	panic("not an atom")
+	return Atom{}
 }
 
 func (s sexpression) AsPair() Pair {
-	panic("not a pair")
+	return Pair{}
 }
 
 func (s sexpression) AsProcedure() Proc {
-	panic("not a procedure")
+	return Proc{}
 }
 
 type Symbol = string
@@ -263,24 +260,11 @@ func NewAtom(v any) Atom {
 }
 
 func (a Atom) AsAtom() Atom {
-	return a
+	return Atom{}
 }
 
 func (a Atom) String() string {
-	if a.IsSymbol() {
-		return a.AsSymbol()
-	}
-	// TODO: hacked bool type into Number type here!
-	if _, ok := a.value.(bool); ok {
-		return ""
-	}
-	if s, ok := a.value.(string); ok {
-		return fmt.Sprintf("%q", s)
-	}
-	if m, ok := a.value.(map[SExpression]SExpression); ok {
-		return fmt.Sprintf("%v", m)
-	}
-	return strconv.FormatFloat(a.AsNumber(), 'f', -1, 64)
+	return ""
 }
 
 type Pair struct {
@@ -452,10 +436,6 @@ func expandMacro(p Pair) (SExpression, bool) {
 	return tf(p), true
 }
 
-// assuming for now every define-syntax is followed by syntax-rules
-// NOTE: in this implementation literals denote 'symbol constants', ie symbols
-// that are not gensymmed. Both in pattern AND in template.
-// Other (proper) option is to evaluate with env, but I'm not getting into that right now.
 func syntaxRules(keyword string, sr Pair) transformer {
 	literals := []string{keyword, "lambda", "define", "begin", "#t", "#f", "if", "quote", "quasiquote", "unquote"}
 	for _, e := range cons2list(sr.cadr().AsPair()) {
@@ -491,7 +471,6 @@ type pattern struct {
 	isVariable   bool
 	isUnderscore bool
 	isLiteral    bool
-	isConstant   bool
 	isList       bool
 	hasEllipsis  bool
 	content      SExpression
@@ -501,13 +480,10 @@ type pattern struct {
 var symbolCounter int
 
 func gensym() Symbol {
-	// return Symbol("gensym" + fmt.Sprint(rand.Intn(9999999999)))
 	symbolCounter += 1
 	return Symbol(fmt.Sprintf("gensym%d", symbolCounter))
 }
 
-// build=true analyses pattern and builds up a gensym lookup table
-// build=false analyses template and substitutes pattern vars with their gensymmed counterparts
 func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build bool) pattern {
 	if p.IsSymbol() {
 		sym := p.AsSymbol()
@@ -558,7 +534,6 @@ func analyseTemplate(literals []string, t SExpression, gensyms map[Symbol]Symbol
 	return pattern
 }
 
-// which symbols are found at which depth in ellipsis
 func analyseEllipsis(p pattern, e map[Symbol]int, depth int) {
 	if p.isVariable {
 		if depth == 0 && !p.hasEllipsis {
@@ -583,7 +558,6 @@ func analyseEllipsis(p pattern, e map[Symbol]int, depth int) {
 	}
 }
 
-// verifying ellipsis vars
 func verifyEllipsis(p pattern, e map[Symbol]int, depth int) bool {
 	if p.isVariable {
 		ps := p.content.AsSymbol()
@@ -609,9 +583,6 @@ func verifyEllipsis(p pattern, e map[Symbol]int, depth int) bool {
 	return true
 }
 
-// matching pattern to input, returning substitutions needed for valid unification if any
-// TODO: for now, all symbols are pattern variables
-// NOTE: this has become less unification since duplicate pattern vars are not allowed, rename?
 func unify(p pattern, q SExpression, s map[Symbol]SExpression) bool {
 	return unifyWithEllipsis(p, q, s, []int{})
 }
@@ -619,10 +590,7 @@ func unify(p pattern, q SExpression, s map[Symbol]SExpression) bool {
 var counter int
 
 func unifyWithEllipsis(p pattern, q SExpression, s map[Symbol]SExpression, depth []int) bool {
-	// issue is p.isList is false here instead of true when counter is 4
 	counter++
-	if counter == 4 {
-	}
 	if p.isUnderscore {
 		return true
 	}
@@ -677,15 +645,11 @@ func substituteTemplateWithEllipsis(template pattern, substitutions map[Symbol]S
 		}
 		s, ok := substitutions[ss]
 		if ok {
-			// the found variable is an ellipsis var and we have found a substitution for it at this repeat
-			// OR the found variable is a toplevel pattern var without ellipsis
 			return s, isEllipsis
 		}
-		// the found variable is an ellipsis var, but we fail to find a repeat match
 		if isEllipsis {
 			return template.content, false
 		}
-		// OR the found variable is a pattern var without subsitutions and no ellipsis
 		ss = template.content.AsSymbol()
 		s, ok = substitutions[ss]
 		if ok {
@@ -704,8 +668,6 @@ func substituteTemplateWithEllipsis(template pattern, substitutions map[Symbol]S
 			out = append(out, sexpr)
 			continue
 		}
-		// attempt to substitute using depth until failure
-		// we stop when recursion does not match a single ellipsis variable
 		newdepth := make([]int, len(depth))
 		copy(newdepth, depth)
 		newdepth = append(newdepth, 0)
@@ -809,12 +771,10 @@ func atom(token string) SExpression {
 	if token[0] == token[len(token)-1] && token[0] == '"' {
 		return NewPrimitive(token[1 : len(token)-1])
 	}
-	// TODO unquote syntax only works on symbols, not lists atm!
 	if token[0] == ',' {
 		unquote, _, _ := readFromTokens([]string{"(", "unquote", token[1:], ")"})
 		return unquote
 	}
-	// TODO quote syntax only works on symbols, not lists atm!
 	if token[0] == '\'' {
 		quote, _, _ := readFromTokens([]string{"(", "quote", token[1:], ")"})
 		return quote
