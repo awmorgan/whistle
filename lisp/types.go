@@ -6,23 +6,13 @@ import (
 	"strings"
 )
 
-// sexpression bool flags
-// isExpression isAtom    isSymbol
-// else Proc    else Pair else Primitive
-// if Proc      isBuiltin
-//              else user defined procedure
-// Primitives escape back to golang types
-
 type SExpression interface {
 	IsSymbol() bool
 	IsPrimitive() bool
 	IsNumber() bool
 	IsAtom() bool
 	IsPair() bool
-	IsExpression() bool
-	IsProcedure() bool
 	AsSymbol() Symbol
-	AsPrimitive() any
 	AsNumber() Number
 	AsAtom() Atom
 	AsPair() Pair
@@ -49,9 +39,6 @@ func (s sexpression) IsPrimitive() bool {
 }
 
 func (s sexpression) IsNumber() bool {
-	if !s.IsPrimitive() {
-		return false
-	}
 	_, ok := s.value.(Number)
 	return ok
 }
@@ -64,32 +51,11 @@ func (s sexpression) IsPair() bool {
 	return s.isExpression && !s.isAtom
 }
 
-func (s sexpression) IsExpression() bool {
-	return s.isExpression
-}
-
-func (s sexpression) IsProcedure() bool {
-	return !s.isExpression
-}
-
 func (s sexpression) AsSymbol() Symbol {
-	if !s.IsSymbol() {
-		panic("not a symbol")
-	}
 	return s.value.(Symbol)
 }
 
-func (s sexpression) AsPrimitive() any {
-	if !s.IsPrimitive() {
-		panic("not a primitive")
-	}
-	return s.value
-}
-
 func (s sexpression) AsNumber() Number {
-	if !s.IsNumber() {
-		panic("not a number")
-	}
 	return s.value.(Number)
 }
 
@@ -173,16 +139,10 @@ func (p Pair) AsPair() Pair {
 }
 
 func (p Pair) car() SExpression {
-	if p == empty {
-		panic("() is not a pair")
-	}
 	return p.pcar
 }
 
 func (p Pair) cdr() SExpression {
-	if p == empty {
-		panic("() is not a pair")
-	}
 	return p.pcdr
 }
 
