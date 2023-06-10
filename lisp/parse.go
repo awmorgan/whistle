@@ -1,7 +1,6 @@
 package lisp
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -82,8 +81,6 @@ func readFromTokens(tokens []string) (SExpression, []string, error) {
 			list = append(list, parsed)
 		}
 		return list2cons(list...), tokens[1:], nil
-	case ")":
-		return nil, nil, fmt.Errorf("unexpected ')'")
 	default:
 		return atom(token), tokens, nil
 	}
@@ -108,4 +105,3 @@ func atom(token string) SExpression {
 	}
 	return NewSymbol(token)
 }
-
