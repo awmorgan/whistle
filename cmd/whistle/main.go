@@ -7,7 +7,12 @@ import (
 
 func main() {
 	sexpressions, _ := Multiparse("(define a (dl_record 'vertex))")
-	l := Lisp{newProcess(), GlobalEnv()}
+	l := Lisp{
+		process: &process{
+			pid: "<pid1>",
+		},
+		Env: GlobalEnv(),
+	}
 	l.Load(datalog)
 	for _, e := range sexpressions {
 		l.EvalExpr(e)
@@ -323,13 +328,6 @@ type process struct {
 	pid string
 }
 
-func newProcess() *process {
-	p := &process{
-		pid: "<pid1>",
-	}
-	return p
-}
-
 func GlobalEnv() *Env {
 	return &Env{dict: map[Symbol]SExpression{
 		"+": builtinFunc(add),
@@ -394,6 +392,7 @@ func syntaxRules(keyword string, sr Pair) transformer {
 		literals = append(literals, e.AsSymbol())
 	}
 	clauses := []clause{}
+	println("keyword: ", keyword)
 	for _, c := range cons2list(sr.cddr().AsPair()) {
 		cp := c.AsPair()
 		s := map[Symbol]Symbol{}
