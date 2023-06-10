@@ -392,7 +392,7 @@ func syntaxRules(keyword string, sr Pair) transformer {
 		literals = append(literals, e.AsSymbol())
 	}
 	clauses := []clause{}
-	println("keyword: ", keyword)
+	fmt.Println("keyword: ", keyword)
 	for _, c := range cons2list(sr.cddr().AsPair()) {
 		cp := c.AsPair()
 		s := map[Symbol]Symbol{}
