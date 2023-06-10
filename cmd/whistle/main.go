@@ -1,9 +1,9 @@
 package main
 
 import (
+	_ "embed"
 	"os"
 
-	"github.com/deosjr/whistle/datalog"
 	"github.com/deosjr/whistle/lisp"
 )
 
@@ -11,8 +11,11 @@ func main() {
 	filename := os.Args[1]
 	sexpressions, _ := lisp.ParseFile(filename)
 	l := lisp.New()
-	datalog.Load(l)
+	l.Load(datalog)
 	for _, e := range sexpressions {
 		l.EvalExpr(e)
 	}
 }
+
+//go:embed datalog.lisp
+var datalog string
