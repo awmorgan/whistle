@@ -1,9 +1,5 @@
 package lisp
 
-import (
-	"fmt"
-)
-
 type Env struct {
 	dict  map[Symbol]SExpression
 	outer *Env
@@ -13,33 +9,13 @@ func (e *Env) find(s Symbol) (*Env, bool) {
 	if _, ok := e.dict[s]; ok {
 		return e, true
 	}
-	if e.outer == nil {
-		return nil, false
-	}
 	return e.outer.find(s)
 }
 
 func (e *Env) replace(s Symbol, sexp SExpression) bool {
-	outer, ok := e.find(s)
-	if !ok {
-		return false
-	}
+	outer, _ := e.find(s)
 	outer.dict[s] = sexp
 	return true
-}
-
-func (e *Env) Add(s Symbol, sexp SExpression) {
-	e.dict[s] = sexp
-}
-
-func (e *Env) addBuiltin(s Symbol, f BuiltinProc) {
-	e.dict[s] = builtinFunc(f)
-}
-
-func (e *Env) AddBuiltin(s Symbol, f ExternalProc) {
-	e.dict[s] = builtinFunc(func(p *process, env *Env, args []SExpression) (SExpression, error) {
-		return f(args)
-	})
 }
 
 func newEnv(params Pair, args []SExpression, outer *Env) *Env {
@@ -54,19 +30,9 @@ func newEnv(params Pair, args []SExpression, outer *Env) *Env {
 }
 
 func (p *process) evalEnv(env *Env, e SExpression) (SExpression, error) {
-	if p.err != nil {
-		return nil, p.err
-	}
-	if e.IsProcedure() {
-		// e is a proc, evaluate returns itself
-		return e, nil
-	}
 Loop:
 	for {
 		if e.IsPair() {
-			if e.AsPair() == empty {
-				return nil, fmt.Errorf("invalid syntax ()")
-			}
 			ex, ok := expandMacro(e.AsPair())
 			if ok {
 				e = ex
@@ -75,10 +41,7 @@ Loop:
 		}
 		if e.IsAtom() {
 			if e.IsSymbol() {
-				ed, ok := env.find(e.AsSymbol())
-				if !ok {
-					return nil, fmt.Errorf("variable %s is not bound", e.AsSymbol())
-				}
+				ed, _ := env.find(e.AsSymbol())
 				return ed.dict[e.AsSymbol()], nil
 			}
 			// primitive
@@ -94,30 +57,10 @@ Loop:
 			// they rely on their args not being evaluated first
 			// their syntactic forms are checked at read-time
 			switch s {
-			case "if":
-				test := ep.cadr()
-				conseq := ep.caddr()
-				tested, err := p.evalEnv(env, test)
-				if err != nil {
-					return nil, err
-				}
-				if isTruthy(tested) {
-					e = conseq
-					continue Loop
-				}
-				if ep.cdddr().AsPair() == empty {
-					e = NewPrimitive(false)
-					continue Loop
-				}
-				alt := ep.cadddr()
-				e = alt
-				continue Loop
 			case "begin":
 				args := ep.cdr().AsPair()
 				for args.cdr().AsPair() != empty {
-					if _, err := p.evalEnv(env, args.car()); err != nil {
-						return nil, err
-					}
+					p.evalEnv(env, args.car())
 					args = args.cdr().AsPair()
 				}
 				e = args.car()
@@ -127,19 +70,13 @@ Loop:
 			case "define":
 				sym := ep.cadr().AsSymbol()
 				exp := ep.caddr()
-				evalled, err := p.evalEnv(env, exp)
-				if err != nil {
-					return nil, err
-				}
+				evalled, _ := p.evalEnv(env, exp)
 				env.dict[sym] = evalled
 				return NewPrimitive(false), nil
 			case "set!":
 				sym := ep.cadr().AsSymbol()
 				exp := ep.caddr()
-				evalled, err := p.evalEnv(env, exp)
-				if err != nil {
-					return nil, err
-				}
+				evalled, _ := p.evalEnv(env, exp)
 				// TODO: will silently fail if not found
 				// check output bool if you want a proper error
 				env.replace(sym, evalled)
@@ -149,9 +86,6 @@ Loop:
 				transformer := ep.caddr().AsPair()
 				macromap[keyword] = syntaxRules(keyword, transformer)
 				return NewPrimitive(false), nil
-			case "macroexpand":
-				expanded, _ := expandMacro(ep.cadr().AsPair())
-				return expanded, nil
 			case "lambda":
 				params := ep.cadr().AsPair()
 				body := ep.caddr()
@@ -166,14 +100,8 @@ Loop:
 			}
 		}
 		// procedure call
-		peval, err := p.evalEnv(env, car)
-		if err != nil {
-			return nil, err
-		}
+		peval, _ := p.evalEnv(env, car)
 		e = peval
-		if !e.IsProcedure() {
-			return nil, fmt.Errorf("attempt to apply non-procedure %s", e)
-		}
 		proc := e.AsProcedure()
 		pargs := ep.cdr().AsPair()
 		args := []SExpression{}
@@ -195,6 +123,3 @@ Loop:
 		env, e = newEnv(defproc.params, args, defproc.env), defproc.body
 	}
 }
-
-type continuation func(SExpression) SExpression
-

@@ -6,34 +6,17 @@ import (
 	"sync"
 )
 
-// https://learnyousomeerlang.com/the-hitchhikers-guide-to-concurrency
-// adding concurrency to our LISP based on actor model of Erlang,
-// but implemented using Golang's CSP (which is different!)
-
-// For this second attempt we will spawn each process with a copy of the env
-// in which the process was spawned, and storing '$PID' on the process struct
-
-// TODO: this file is only partially migrated to erlang/erlang.go due to
-// some very nasty dependencies on eval within receive!
-
 type process struct {
 	sync.Mutex
 	pid     string
 	mailbox []SExpression
 	err     error
-	// process flags
 	trapExit             bool
-	evalWithContinuation bool
-	// TODO: rand seed, etc
 }
 
 type processError struct {
 	err error
 	pid string
-	// if we encounter error and we are in evalK, we can restore
-	// using value under evaluation (v) and continuation (k)
-	k continuation
-	v SExpression
 }
 
 func newProcess() *process {
