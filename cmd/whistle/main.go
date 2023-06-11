@@ -14,10 +14,8 @@ type SExpression interface {
 }
 
 type sexpression struct {
-	isExpression bool
-	isAtom       bool
-	isString     bool
-	value        any
+	isExpression, isAtom, isString bool
+	value                          any
 }
 
 type Atom struct {
@@ -26,8 +24,7 @@ type Atom struct {
 
 type Pair struct {
 	sexpression
-	pcar SExpression
-	pcdr SExpression
+	pcar, pcdr SExpression
 }
 
 type Lisp struct {
@@ -42,7 +39,7 @@ type Env struct {
 
 type Proc struct {
 	sexpression
-	isBuiltin bool // user defined proc if false
+	isBuiltin bool
 }
 
 type DefinedProc struct {
@@ -60,19 +57,14 @@ type process struct {
 type transformer = func(Pair) SExpression
 
 type clause struct {
-	pattern  pattern
-	template pattern
-	ellipsis map[string]int
+	pattern, template pattern
+	ellipsis          map[string]int
 }
 
 type pattern struct {
-	isVariable   bool
-	isUnderscore bool
-	isLiteral    bool
-	isList       bool
-	hasEllipsis  bool
-	content      SExpression
-	listContent  []pattern
+	isVariable, isUnderscore, isLiteral, isList, hasEllipsis bool
+	content                                                  SExpression
+	listContent                                              []pattern
 }
 
 func main() {
