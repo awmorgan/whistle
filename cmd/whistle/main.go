@@ -8,7 +8,7 @@ import (
 func main() {
 	l := Lisp{}
 	l.process = &process{pid: "<pid1>"}
-	l.Env = &Env{dict: map[Symbol]SExpression{"+": builtinFunc(add)}}
+	l.Env = &Env{dict: map[string]SExpression{"+": builtinFunc(add)}}
 	sexprs, _ := Multiparse(datalog)
 	for _, def := range sexprs {
 		l.process.evalEnv(l.Env, def)
@@ -42,28 +42,28 @@ type Lisp struct {
 }
 
 type Env struct {
-	dict  map[Symbol]SExpression
+	dict  map[string]SExpression
 	outer *Env
 }
 
-func (e *Env) find(s Symbol) (*Env, bool) {
+func (e *Env) find(s string) (*Env, bool) {
 	if _, ok := e.dict[s]; ok {
 		return e, true
 	}
 	return e.outer.find(s)
 }
 
-func (e *Env) replace(s Symbol, sexp SExpression) bool {
+func (e *Env) replace(s string, sexp SExpression) bool {
 	outer, _ := e.find(s)
 	outer.dict[s] = sexp
 	return true
 }
 
 func newEnv(params Pair, args []SExpression, outer *Env) *Env {
-	m := map[Symbol]SExpression{}
+	m := map[string]SExpression{}
 	i := 0
 	for params != NewPair(nil, nil) {
-		m[params.pcar.AsSymbol()] = args[i]
+		m[params.pcar.AsString()] = args[i]
 		params = params.pcdr.(Pair)
 		i++
 	}
@@ -81,16 +81,16 @@ Loop:
 			}
 		}
 		if e.IsAtom() {
-			if e.IsSymbol() {
-				ed, _ := env.find(e.AsSymbol())
-				return ed.dict[e.AsSymbol()], nil
+			if e.Isstring() {
+				ed, _ := env.find(e.AsString())
+				return ed.dict[e.AsString()], nil
 			}
 			return e, nil
 		}
 		ep := e.(Pair)
 		car := ep.pcar
-		if car.IsSymbol() {
-			s := car.AsSymbol()
+		if car.Isstring() {
+			s := car.AsString()
 			switch s {
 			case "begin":
 				args := ep.pcdr.(Pair)
@@ -101,19 +101,19 @@ Loop:
 				e = args.pcar
 				continue Loop
 			case "define":
-				sym := ep.cadr().AsSymbol()
+				sym := ep.cadr().AsString()
 				exp := ep.caddr()
 				evalled, _ := p.evalEnv(env, exp)
 				env.dict[sym] = evalled
 				return NewPrimitive(false), nil
 			case "set!":
-				sym := ep.cadr().AsSymbol()
+				sym := ep.cadr().AsString()
 				exp := ep.caddr()
 				evalled, _ := p.evalEnv(env, exp)
 				env.replace(sym, evalled)
 				return NewPrimitive(false), nil
 			case "define-syntax":
-				keyword := ep.cadr().AsSymbol()
+				keyword := ep.cadr().AsString()
 				transformer := ep.caddr().(Pair)
 				macromap[keyword] = syntaxRules(keyword, transformer)
 				return NewPrimitive(false), nil
@@ -150,8 +150,8 @@ Loop:
 	}
 }
 
-func (s sexpression) IsSymbol() bool {
-	return s.isAtom && s.isSymbol
+func (s sexpression) Isstring() bool {
+	return s.isAtom && s.isstring
 }
 
 func (s sexpression) IsAtom() bool {
@@ -162,23 +162,19 @@ func (s sexpression) IsPair() bool {
 	return s.isExpression && !s.isAtom
 }
 
-func (s sexpression) AsSymbol() Symbol {
-	return s.value.(Symbol)
+func (s sexpression) AsString() string {
+	return s.value.(string)
 }
 
-func (s sexpression) AsNumber() Number {
-	return s.value.(Number)
+func (s sexpression) AsFloat64() float64 {
+	return s.value.(float64)
 }
 
-type Symbol = string
-
-func NewSymbol(s string) Atom {
+func Newstring(s string) Atom {
 	a := NewAtom(s)
-	a.isSymbol = true
+	a.isstring = true
 	return a
 }
-
-type Number = float64
 
 func NewPrimitive(v any) Atom {
 	return NewAtom(v)
@@ -197,17 +193,17 @@ func NewAtom(v any) Atom {
 }
 
 type SExpression interface {
-	IsSymbol() bool
+	Isstring() bool
 	IsAtom() bool
 	IsPair() bool
-	AsSymbol() Symbol
-	AsNumber() Number
+	AsString() string
+	AsFloat64() float64
 }
 
 type sexpression struct {
 	isExpression bool
 	isAtom       bool
-	isSymbol     bool
+	isstring     bool
 	value        any
 }
 
@@ -289,7 +285,7 @@ func builtinFunc(f BuiltinProc) Proc {
 }
 
 func add(p *process, env *Env, args []SExpression) (SExpression, error) {
-	return NewPrimitive(args[0].AsNumber() + args[1].AsNumber()), nil
+	return NewPrimitive(args[0].AsFloat64() + args[1].AsFloat64()), nil
 }
 
 const ellipsis = "..."
@@ -319,10 +315,10 @@ func parse(program string) (SExpression, error) {
 type transformer = func(Pair) SExpression
 
 func expandMacro(p Pair) (SExpression, bool) {
-	if !p.pcar.IsSymbol() {
+	if !p.pcar.Isstring() {
 		return p, false
 	}
-	s := p.pcar.AsSymbol()
+	s := p.pcar.AsString()
 	tf, ok := macromap[s]
 	if !ok {
 		return p, false
@@ -333,19 +329,19 @@ func expandMacro(p Pair) (SExpression, bool) {
 func syntaxRules(keyword string, sr Pair) transformer {
 	literals := []string{keyword, "lambda", "define", "begin"}
 	for _, e := range cons2list(sr.cadr().(Pair)) {
-		literals = append(literals, e.AsSymbol())
+		literals = append(literals, e.AsString())
 	}
 	clauses := []clause{}
 	for _, c := range cons2list(sr.cddr().(Pair)) {
 		cp := c.(Pair)
-		s := map[Symbol]Symbol{}
-		e := map[Symbol]int{}
+		s := map[string]string{}
+		e := map[string]int{}
 		p := analysePattern(literals, cp.pcar, s, e)
 		t := analyseTemplate(literals, cp.cadr(), s, e)
 		clauses = append(clauses, clause{pattern: p, template: t, ellipsis: e})
 	}
 	return func(p Pair) SExpression {
-		substitutions := map[Symbol]SExpression{}
+		substitutions := map[string]SExpression{}
 		fmt.Printf("in closure: clause[0].pattern.isList: %v\n", clauses[0].pattern.isList)
 		unify(clauses[0].pattern, p, substitutions)
 		return substituteTemplate(clauses[0].template, substitutions, clauses[0].ellipsis)
@@ -355,7 +351,7 @@ func syntaxRules(keyword string, sr Pair) transformer {
 type clause struct {
 	pattern  pattern
 	template pattern
-	ellipsis map[Symbol]int
+	ellipsis map[string]int
 }
 
 type pattern struct {
@@ -370,14 +366,14 @@ type pattern struct {
 
 var symbolCounter int
 
-func gensym() Symbol {
+func gensym() string {
 	symbolCounter += 1
-	return Symbol(fmt.Sprintf("gensym%d", symbolCounter))
+	return string(fmt.Sprintf("gensym%d", symbolCounter))
 }
 
-func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build bool) pattern {
-	if p.IsSymbol() {
-		sym := p.AsSymbol()
+func analyse(literals []string, p SExpression, gensyms map[string]string, build bool) pattern {
+	if p.Isstring() {
+		sym := p.AsString()
 		if sym == underscore {
 			return pattern{isUnderscore: true}
 		}
@@ -389,13 +385,13 @@ func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build 
 		if build {
 			newsym := gensym()
 			gensyms[sym] = newsym
-			return pattern{isVariable: true, content: NewSymbol(newsym)}
+			return pattern{isVariable: true, content: Newstring(newsym)}
 		}
 		newsym, ok := gensyms[sym]
 		if !ok {
 			return pattern{isVariable: true, content: p}
 		}
-		return pattern{isVariable: true, content: NewSymbol(newsym)}
+		return pattern{isVariable: true, content: Newstring(newsym)}
 	}
 	listContent := []pattern{}
 	list := cons2list(p.(Pair))
@@ -403,7 +399,7 @@ func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build 
 		pi := analyse(literals, list[i], gensyms, build)
 		if i != len(list)-1 {
 			sexprj := list[i+1]
-			if sexprj.IsSymbol() && sexprj.AsSymbol() == ellipsis {
+			if sexprj.Isstring() && sexprj.AsString() == ellipsis {
 				pi.hasEllipsis = true
 				i += 1
 			}
@@ -413,23 +409,23 @@ func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build 
 	return pattern{isList: true, listContent: listContent}
 }
 
-func analysePattern(literals []string, p SExpression, gensyms map[Symbol]Symbol, ellipsis map[Symbol]int) pattern {
+func analysePattern(literals []string, p SExpression, gensyms map[string]string, ellipsis map[string]int) pattern {
 	pattern := analyse(literals, p, gensyms, true)
 	analyseEllipsis(pattern, ellipsis, 0)
 	return pattern
 }
 
-func analyseTemplate(literals []string, t SExpression, gensyms map[Symbol]Symbol, ellipsis map[Symbol]int) pattern {
+func analyseTemplate(literals []string, t SExpression, gensyms map[string]string, ellipsis map[string]int) pattern {
 	pattern := analyse(literals, t, gensyms, false)
 	return pattern
 }
 
-func analyseEllipsis(p pattern, e map[Symbol]int, depth int) {
+func analyseEllipsis(p pattern, e map[string]int, depth int) {
 	if p.isVariable {
 		if depth == 0 && !p.hasEllipsis {
 			return
 		}
-		ps := p.content.AsSymbol()
+		ps := p.content.AsString()
 		if p.hasEllipsis {
 			depth++
 		}
@@ -448,16 +444,16 @@ func analyseEllipsis(p pattern, e map[Symbol]int, depth int) {
 	}
 }
 
-func unify(p pattern, q SExpression, s map[Symbol]SExpression) bool {
+func unify(p pattern, q SExpression, s map[string]SExpression) bool {
 	return unifyWithEllipsis(p, q, s, []int{})
 }
 
-func unifyWithEllipsis(p pattern, q SExpression, s map[Symbol]SExpression, depth []int) bool {
+func unifyWithEllipsis(p pattern, q SExpression, s map[string]SExpression, depth []int) bool {
 	if p.isUnderscore {
 		return true
 	}
 	if p.isVariable {
-		ps := p.content.AsSymbol()
+		ps := p.content.AsString()
 		for i := 0; i < len(depth); i++ {
 			ps += fmt.Sprintf("#%d", depth[i])
 		}
@@ -490,17 +486,17 @@ Loop:
 	return qp == NewPair(nil, nil)
 }
 
-func substituteTemplate(template pattern, substitutions map[Symbol]SExpression, ellipsis map[Symbol]int) SExpression {
+func substituteTemplate(template pattern, substitutions map[string]SExpression, ellipsis map[string]int) SExpression {
 	sexpr, _ := substituteTemplateWithEllipsis(template, substitutions, ellipsis, []int{})
 	return sexpr
 }
 
-func substituteTemplateWithEllipsis(template pattern, substitutions map[Symbol]SExpression, e map[Symbol]int, depth []int) (SExpression, bool) {
+func substituteTemplateWithEllipsis(template pattern, substitutions map[string]SExpression, e map[string]int, depth []int) (SExpression, bool) {
 	if template.isLiteral {
 		return template.content, false
 	}
 	if template.isVariable {
-		ss := template.content.AsSymbol()
+		ss := template.content.AsString()
 		_, isEllipsis := e[ss]
 		for i := 0; i < len(depth); i++ {
 			ss += fmt.Sprintf("#%d", depth[i])
@@ -512,12 +508,12 @@ func substituteTemplateWithEllipsis(template pattern, substitutions map[Symbol]S
 		if isEllipsis {
 			return template.content, false
 		}
-		ss = template.content.AsSymbol()
+		ss = template.content.AsString()
 		s, ok = substitutions[ss]
 		if ok {
 			return s, false
 		}
-		newsym := NewSymbol(gensym())
+		newsym := Newstring(gensym())
 		substitutions[ss] = newsym
 		return newsym, false
 	}
@@ -592,5 +588,5 @@ func atom(token string) SExpression {
 		quote, _, _ := readFromTokens([]string{"(", "quote", token[1:], ")"})
 		return quote
 	}
-	return NewSymbol(token)
+	return Newstring(token)
 }
