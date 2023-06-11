@@ -6,11 +6,15 @@ import (
 )
 
 func main() {
-	sexpressions, _ := Multiparse("(define a (dl_record 'vertex))")
 	l := Lisp{}
 	l.process = &process{ pid: "<pid1>" }
 	l.Env = &Env{ dict: map[Symbol]SExpression{ "+": builtinFunc(add) } }
-	l.Load(datalog)
+	sexprs, _ := Multiparse(datalog)
+	for _, def := range sexprs {
+		l.EvalExpr(def)
+	}
+
+	sexpressions, _ := Multiparse("(define a (dl_record 'vertex))")
 	for _, e := range sexpressions {
 		l.EvalExpr(e)
 	}
@@ -39,14 +43,6 @@ type Lisp struct {
 
 func (l Lisp) EvalExpr(e SExpression) (SExpression, error) {
 	return l.process.evalEnv(l.Env, e)
-}
-
-func (l Lisp) Load(data string) error {
-	sexprs, _ := Multiparse(data)
-	for _, def := range sexprs {
-		l.EvalExpr(def)
-	}
-	return nil
 }
 
 type Env struct {
