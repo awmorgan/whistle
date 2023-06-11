@@ -82,7 +82,7 @@ Loop:
 			}
 		}
 		if e.IsAtom() {
-			if e.Isstring() {
+			if e.IsString() {
 				ed, _ := env.find(e.AsString())
 				return ed.dict[e.AsString()], nil
 			}
@@ -90,7 +90,7 @@ Loop:
 		}
 		ep := e.(Pair)
 		car := ep.pcar
-		if car.Isstring() {
+		if car.IsString() {
 			s := car.AsString()
 			switch s {
 			case "begin":
@@ -151,7 +151,7 @@ Loop:
 	}
 }
 
-func (s sexpression) Isstring() bool {
+func (s sexpression) IsString() bool {
 	return s.isAtom && s.isstring
 }
 
@@ -190,7 +190,7 @@ func NewAtom(v any) Atom {
 }
 
 type SExpression interface {
-	Isstring() bool
+	IsString() bool
 	IsAtom() bool
 	IsPair() bool
 	AsString() string
@@ -303,7 +303,7 @@ func parse(program string) (SExpression, error) {
 type transformer = func(Pair) SExpression
 
 func expandMacro(p Pair) (SExpression, bool) {
-	if !p.pcar.Isstring() {
+	if !p.pcar.IsString() {
 		return p, false
 	}
 	s := p.pcar.AsString()
@@ -360,7 +360,7 @@ func gensym() string {
 }
 
 func analyse(literals []string, p SExpression, gensyms map[string]string, build bool) pattern {
-	if p.Isstring() {
+	if p.IsString() {
 		sym := p.AsString()
 		if sym == underscore {
 			return pattern{isUnderscore: true}
@@ -387,7 +387,7 @@ func analyse(literals []string, p SExpression, gensyms map[string]string, build 
 		pi := analyse(literals, list[i], gensyms, build)
 		if i != len(list)-1 {
 			sexprj := list[i+1]
-			if sexprj.Isstring() && sexprj.AsString() == ellipsis {
+			if sexprj.IsString() && sexprj.AsString() == ellipsis {
 				pi.hasEllipsis = true
 				i += 1
 			}
