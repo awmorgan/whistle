@@ -131,7 +131,7 @@ Loop:
 		}
 		peval, _ := p.evalEnv(env, car)
 		e = peval
-		proc := e.AsProcedure()
+		proc := e.(Proc)
 		pargs := ep.pcdr.(Pair)
 		args := []SExpression{}
 		for pargs != NewPair(nil, nil) {
@@ -174,10 +174,6 @@ func (s sexpression) AsNumber() Number {
 	return s.value.(Number)
 }
 
-func (s sexpression) AsProcedure() Proc {
-	return Proc{}
-}
-
 type Symbol = string
 
 func NewSymbol(s string) Atom {
@@ -211,7 +207,6 @@ type SExpression interface {
 	IsPair() bool
 	AsSymbol() Symbol
 	AsNumber() Number
-	AsProcedure() Proc
 }
 
 type sexpression struct {
@@ -275,10 +270,6 @@ func cons2list(p Pair) []SExpression {
 type Proc struct {
 	sexpression
 	isBuiltin bool // user defined proc if false
-}
-
-func (p Proc) AsProcedure() Proc {
-	return p
 }
 
 func (p Proc) builtin() BuiltinProc {
