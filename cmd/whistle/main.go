@@ -64,7 +64,7 @@ func newEnv(params Pair, args []SExpression, outer *Env) *Env {
 	i := 0
 	for params != NewPair(nil, nil) {
 		m[params.pcar.AsSymbol()] = args[i]
-		params = params.pcdr.AsPair()
+		params = params.pcdr.(Pair)
 		i++
 	}
 	return &Env{dict: m, outer: outer}
@@ -74,7 +74,7 @@ func (p *process) evalEnv(env *Env, e SExpression) (SExpression, error) {
 Loop:
 	for {
 		if e.IsPair() {
-			ex, ok := expandMacro(e.AsPair())
+			ex, ok := expandMacro(e.(Pair))
 			if ok {
 				e = ex
 				continue Loop
@@ -87,16 +87,16 @@ Loop:
 			}
 			return e, nil
 		}
-		ep := e.AsPair()
+		ep := e.(Pair)
 		car := ep.pcar
 		if car.IsSymbol() {
 			s := car.AsSymbol()
 			switch s {
 			case "begin":
-				args := ep.pcdr.AsPair()
-				for args.pcdr.AsPair() != NewPair(nil, nil) {
+				args := ep.pcdr.(Pair)
+				for args.pcdr.(Pair) != NewPair(nil, nil) {
 					p.evalEnv(env, args.pcar)
-					args = args.pcdr.AsPair()
+					args = args.pcdr.(Pair)
 				}
 				e = args.pcar
 				continue Loop
@@ -114,11 +114,11 @@ Loop:
 				return NewPrimitive(false), nil
 			case "define-syntax":
 				keyword := ep.cadr().AsSymbol()
-				transformer := ep.caddr().AsPair()
+				transformer := ep.caddr().(Pair)
 				macromap[keyword] = syntaxRules(keyword, transformer)
 				return NewPrimitive(false), nil
 			case "lambda":
-				params := ep.cadr().AsPair()
+				params := ep.cadr().(Pair)
 				body := ep.caddr()
 				return Proc{sexpression: sexpression{
 					value: DefinedProc{
@@ -132,11 +132,11 @@ Loop:
 		peval, _ := p.evalEnv(env, car)
 		e = peval
 		proc := e.AsProcedure()
-		pargs := ep.pcdr.AsPair()
+		pargs := ep.pcdr.(Pair)
 		args := []SExpression{}
 		for pargs != NewPair(nil, nil) {
 			args = append(args, pargs.pcar)
-			pargs = pargs.pcdr.AsPair()
+			pargs = pargs.pcdr.(Pair)
 		}
 		for i, arg := range args {
 			evarg, _ := p.evalEnv(env, arg)
@@ -172,10 +172,6 @@ func (s sexpression) AsSymbol() Symbol {
 
 func (s sexpression) AsNumber() Number {
 	return s.value.(Number)
-}
-
-func (s sexpression) AsPair() Pair {
-	return Pair{}
 }
 
 func (s sexpression) AsProcedure() Proc {
@@ -215,7 +211,6 @@ type SExpression interface {
 	IsPair() bool
 	AsSymbol() Symbol
 	AsNumber() Number
-	AsPair() Pair
 	AsProcedure() Proc
 }
 
@@ -242,26 +237,16 @@ func NewPair(car, cdr SExpression) Pair {
 	}
 }
 
-func (p Pair) AsPair() Pair {
-	return p
-}
-
 func (p Pair) cadr() SExpression {
-	if p.pcdr == nil {
-		return nil
-	}
-	if nextPair, ok := p.pcdr.(Pair); ok {
-		return nextPair.pcar
-	}
-	return nil
+	return p.pcdr.(Pair).pcar
 }
 
 func (p Pair) caddr() SExpression {
-	return p.pcdr.AsPair().pcdr.AsPair().pcar
+	return p.pcdr.(Pair).pcdr.(Pair).pcar
 }
 
 func (p Pair) cddr() SExpression {
-	return p.pcdr.AsPair().pcdr
+	return p.pcdr.(Pair).pcdr
 }
 
 func list2cons(list ...SExpression) Pair {
@@ -282,7 +267,7 @@ func cons2list(p Pair) []SExpression {
 	list := []SExpression{}
 	for p != NewPair(nil, nil) {
 		list = append(list, p.pcar)
-		p = p.pcdr.AsPair()
+		p = p.pcdr.(Pair)
 	}
 	return list
 }
@@ -337,7 +322,7 @@ func init() {
 	s := mustParse(`(syntax-rules ()
                                  ((_ ((var exp) ...) body1 body2 ...)
                                    ((lambda (var ...) (begin body1 body2 ...)) exp ...)))`)
-	s1 := s.AsPair()
+	s1 := s.(Pair)
 	s2 := syntaxRules("let", s1)
 	macromap["let"] = s2
 }
@@ -368,12 +353,12 @@ func expandMacro(p Pair) (SExpression, bool) {
 
 func syntaxRules(keyword string, sr Pair) transformer {
 	literals := []string{keyword, "lambda", "define", "begin"}
-	for _, e := range cons2list(sr.cadr().AsPair()) {
+	for _, e := range cons2list(sr.cadr().(Pair)) {
 		literals = append(literals, e.AsSymbol())
 	}
 	clauses := []clause{}
-	for _, c := range cons2list(sr.cddr().AsPair()) {
-		cp := c.AsPair()
+	for _, c := range cons2list(sr.cddr().(Pair)) {
+		cp := c.(Pair)
 		s := map[Symbol]Symbol{}
 		e := map[Symbol]int{}
 		p := analysePattern(literals, cp.pcar, s, e)
@@ -437,7 +422,7 @@ func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build 
 		return pattern{isVariable: true, content: NewSymbol(newsym)}
 	}
 	listContent := []pattern{}
-	list := cons2list(p.AsPair())
+	list := cons2list(p.(Pair))
 	for i := 0; i < len(list); i++ {
 		pi := analyse(literals, list[i], gensyms, build)
 		if i != len(list)-1 {
@@ -506,12 +491,12 @@ func unifyWithEllipsis(p pattern, q SExpression, s map[Symbol]SExpression, depth
 	if !p.isList {
 		panic("pattern assumed to be list")
 	}
-	qp := q.AsPair()
+	qp := q.(Pair)
 Loop:
 	for _, pp := range p.listContent {
 		if !pp.hasEllipsis {
 			unifyWithEllipsis(pp, qp.pcar, s, depth)
-			qp = qp.pcdr.AsPair()
+			qp = qp.pcdr.(Pair)
 			continue Loop
 		}
 		newdepth := make([]int, len(depth))
@@ -523,7 +508,7 @@ Loop:
 			}
 			unifyWithEllipsis(pp, qp.pcar, s, newdepth)
 			newdepth[len(newdepth)-1] = newdepth[len(newdepth)-1] + 1
-			qp = qp.pcdr.AsPair()
+			qp = qp.pcdr.(Pair)
 		}
 	}
 	return qp == NewPair(nil, nil)
