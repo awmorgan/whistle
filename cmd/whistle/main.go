@@ -436,7 +436,8 @@ func gensym() Symbol {
 }
 
 func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build bool) pattern {
-	fmt.Printf("analyse: %v\n", p)
+	// fmt.Printf("analyse: %v\n", p)
+	fmt.Printf("analyse: %v\n", gensyms)
 	if p.IsSymbol() {
 		sym := p.AsSymbol()
 		if sym == underscore {
