@@ -7,17 +7,9 @@ import (
 
 func main() {
 	sexpressions, _ := Multiparse("(define a (dl_record 'vertex))")
-	l := Lisp{
-		process: &process{
-			pid: "<pid1>",
-		},
-		Env: &Env{
-			dict: map[Symbol]SExpression{
-				"+": builtinFunc(add),
-			},
-			outer: nil,
-		},
-	}
+	l := Lisp{}
+	l.process = &process{ pid: "<pid1>" }
+	l.Env = &Env{ dict: map[Symbol]SExpression{ "+": builtinFunc(add) } }
 	l.Load(datalog)
 	for _, e := range sexpressions {
 		l.EvalExpr(e)
