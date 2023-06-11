@@ -102,24 +102,24 @@ Loop:
 				e = args.pcar
 				continue Loop
 			case "define":
-				sym := ep.cadr().AsString()
+				sym := ep.pcdr.(Pair).pcar.AsString()
 				exp := ep.caddr()
 				evalled, _ := p.evalEnv(env, exp)
 				env.dict[sym] = evalled
 				return NewAtom(false), nil
 			case "set!":
-				sym := ep.cadr().AsString()
+				sym := ep.pcdr.(Pair).pcar.AsString()
 				exp := ep.caddr()
 				evalled, _ := p.evalEnv(env, exp)
 				env.replace(sym, evalled)
 				return NewAtom(false), nil
 			case "define-syntax":
-				keyword := ep.cadr().AsString()
+				keyword := ep.pcdr.(Pair).pcar.AsString()
 				transformer := ep.caddr().(Pair)
 				macromap[keyword] = syntaxRules(keyword, transformer)
 				return NewAtom(false), nil
 			case "lambda":
-				params := ep.cadr().(Pair)
+				params := ep.pcdr.(Pair).pcar.(Pair)
 				body := ep.caddr()
 				return Proc{sexpression: sexpression{
 					value: DefinedProc{
@@ -220,10 +220,6 @@ func NewPair(car, cdr SExpression) Pair {
 	}
 }
 
-func (p Pair) cadr() SExpression {
-	return p.pcdr.(Pair).pcar
-}
-
 func (p Pair) caddr() SExpression {
 	return p.pcdr.(Pair).pcdr.(Pair).pcar
 }
@@ -316,7 +312,7 @@ func expandMacro(p Pair) (SExpression, bool) {
 
 func syntaxRules(keyword string, sr Pair) transformer {
 	literals := []string{keyword, "lambda", "define", "begin"}
-	for _, e := range cons2list(sr.cadr().(Pair)) {
+	for _, e := range cons2list(sr.pcdr.(Pair).pcar.(Pair)) {
 		literals = append(literals, e.AsString())
 	}
 	clauses := prepareClauses(sr, literals)
@@ -330,7 +326,7 @@ func prepareClauses(sr Pair, literals []string) []clause {
 		s := map[string]string{}
 		e := map[string]int{}
 		p := analysePattern(literals, cp.pcar, s, e)
-		t := analyseTemplate(literals, cp.cadr(), s, e)
+		t := analyseTemplate(literals, cp.pcdr.(Pair).pcar, s, e)
 		clauses = append(clauses, clause{pattern: p, template: t, ellipsis: e})
 	}
 	return clauses
