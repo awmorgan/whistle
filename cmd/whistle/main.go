@@ -150,24 +150,6 @@ Loop:
 	}
 }
 
-type SExpression interface {
-	IsSymbol() bool
-	IsNumber() bool
-	IsAtom() bool
-	IsPair() bool
-	AsSymbol() Symbol
-	AsNumber() Number
-	AsPair() Pair
-	AsProcedure() Proc
-}
-
-type sexpression struct {
-	isExpression bool
-	isAtom       bool
-	isSymbol     bool
-	value        any
-}
-
 func (s sexpression) IsSymbol() bool {
 	return s.isAtom && s.isSymbol
 }
@@ -226,6 +208,24 @@ func NewAtom(v any) Atom {
 	}}
 }
 
+type SExpression interface {
+	IsSymbol() bool
+	IsNumber() bool
+	IsAtom() bool
+	IsPair() bool
+	AsSymbol() Symbol
+	AsNumber() Number
+	AsPair() Pair
+	AsProcedure() Proc
+}
+
+type sexpression struct {
+	isExpression bool
+	isAtom       bool
+	isSymbol     bool
+	value        any
+}
+
 type Pair struct {
 	sexpression
 	pcar SExpression
@@ -247,7 +247,13 @@ func (p Pair) AsPair() Pair {
 }
 
 func (p Pair) cadr() SExpression {
-	return p.pcdr.AsPair().pcar
+	if p.pcdr == nil {
+		return nil
+	}
+	if nextPair, ok := p.pcdr.(Pair); ok {
+		return nextPair.pcar
+	}
+	return nil
 }
 
 func (p Pair) caddr() SExpression {
