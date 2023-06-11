@@ -75,7 +75,7 @@ func newEnv(params Pair, args []SExpression, outer *Env) *Env {
 	i := 0
 	for params != NewPair(nil, nil) {
 		m[params.pcar.AsSymbol()] = args[i]
-		params = params.cdr().AsPair()
+		params = params.pcdr.AsPair()
 		i++
 	}
 	return &Env{dict: m, outer: outer}
@@ -104,10 +104,10 @@ Loop:
 			s := car.AsSymbol()
 			switch s {
 			case "begin":
-				args := ep.cdr().AsPair()
-				for args.cdr().AsPair() != NewPair(nil, nil) {
+				args := ep.pcdr.AsPair()
+				for args.pcdr.AsPair() != NewPair(nil, nil) {
 					p.evalEnv(env, args.pcar)
-					args = args.cdr().AsPair()
+					args = args.pcdr.AsPair()
 				}
 				e = args.pcar
 				continue Loop
@@ -143,11 +143,11 @@ Loop:
 		peval, _ := p.evalEnv(env, car)
 		e = peval
 		proc := e.AsProcedure()
-		pargs := ep.cdr().AsPair()
+		pargs := ep.pcdr.AsPair()
 		args := []SExpression{}
 		for pargs != NewPair(nil, nil) {
 			args = append(args, pargs.pcar)
-			pargs = pargs.cdr().AsPair()
+			pargs = pargs.pcdr.AsPair()
 		}
 		for i, arg := range args {
 			evarg, _ := p.evalEnv(env, arg)
@@ -257,20 +257,16 @@ func (p Pair) AsPair() Pair {
 	return p
 }
 
-func (p Pair) cdr() SExpression {
-	return p.pcdr
-}
-
 func (p Pair) cadr() SExpression {
-	return p.cdr().AsPair().pcar
+	return p.pcdr.AsPair().pcar
 }
 
 func (p Pair) caddr() SExpression {
-	return p.cdr().AsPair().cdr().AsPair().pcar
+	return p.pcdr.AsPair().pcdr.AsPair().pcar
 }
 
 func (p Pair) cddr() SExpression {
-	return p.cdr().AsPair().cdr()
+	return p.pcdr.AsPair().pcdr
 }
 
 func list2cons(list ...SExpression) Pair {
@@ -526,7 +522,7 @@ Loop:
 	for _, pp := range p.listContent {
 		if !pp.hasEllipsis {
 			unifyWithEllipsis(pp, qp.pcar, s, depth)
-			qp = qp.cdr().AsPair()
+			qp = qp.pcdr.AsPair()
 			continue Loop
 		}
 		newdepth := make([]int, len(depth))
@@ -538,7 +534,7 @@ Loop:
 			}
 			unifyWithEllipsis(pp, qp.pcar, s, newdepth)
 			newdepth[len(newdepth)-1] = newdepth[len(newdepth)-1] + 1
-			qp = qp.cdr().AsPair()
+			qp = qp.pcdr.AsPair()
 		}
 	}
 	return qp == NewPair(nil, nil)
