@@ -356,7 +356,6 @@ func init() {
 	s := mustParse(`(syntax-rules ()
                                  ((_ ((var exp) ...) body1 body2 ...)
                                    ((lambda (var ...) (begin body1 body2 ...)) exp ...)))`)
-	// fmt.Printf("%#v\n", s)
 	s1 := s.AsPair()
 	s2 := syntaxRules("let", s1)
 	macromap["let"] = s2
@@ -437,7 +436,6 @@ func gensym() Symbol {
 
 func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build bool) pattern {
 	// fmt.Printf("analyse: %v\n", p)
-	// fmt.Printf("analyse: %v\n", gensyms)
 	if p.IsSymbol() {
 		sym := p.AsSymbol()
 		if sym == underscore {
@@ -462,8 +460,8 @@ func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build 
 	listContent := []pattern{}
 	list := cons2list(p.AsPair())
 	for i := 0; i < len(list); i++ {
-		fmt.Printf("analyse: calling analyse\n")
 		pi := analyse(literals, list[i], gensyms, build)
+		fmt.Printf("")
 		if i != len(list)-1 {
 			sexprj := list[i+1]
 			if sexprj.IsSymbol() && sexprj.AsSymbol() == ellipsis {
@@ -477,17 +475,13 @@ func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build 
 }
 
 func analysePattern(literals []string, p SExpression, gensyms map[Symbol]Symbol, ellipsis map[Symbol]int) pattern {
-	fmt.Printf("analysePattern: calling analyse\n")
 	pattern := analyse(literals, p, gensyms, true)
-	fmt.Printf("analysePattern: pattern.isList: %v\n", pattern.isList)
 	analyseEllipsis(pattern, ellipsis, 0)
 	return pattern
 }
 
 func analyseTemplate(literals []string, t SExpression, gensyms map[Symbol]Symbol, ellipsis map[Symbol]int) pattern {
-	fmt.Printf("analyseTemplate: calling analyse\n")
 	pattern := analyse(literals, t, gensyms, false)
-	fmt.Printf("analyseTemplate: pattern.isList: %v\n", pattern.isList)
 	return pattern
 }
 
