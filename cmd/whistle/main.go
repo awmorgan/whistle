@@ -391,7 +391,6 @@ func syntaxRules(keyword string, sr Pair) transformer {
 		literals = append(literals, e.AsSymbol())
 	}
 	clauses := []clause{}
-	fmt.Println("keyword: ", keyword)
 	for _, c := range cons2list(sr.cddr().AsPair()) {
 		cp := c.AsPair()
 		s := map[Symbol]Symbol{}
@@ -435,7 +434,6 @@ func gensym() Symbol {
 }
 
 func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build bool) pattern {
-	// fmt.Printf("analyse: %v\n", p)
 	if p.IsSymbol() {
 		sym := p.AsSymbol()
 		if sym == underscore {
@@ -461,7 +459,6 @@ func analyse(literals []string, p SExpression, gensyms map[Symbol]Symbol, build 
 	list := cons2list(p.AsPair())
 	for i := 0; i < len(list); i++ {
 		pi := analyse(literals, list[i], gensyms, build)
-		fmt.Printf("")
 		if i != len(list)-1 {
 			sexprj := list[i+1]
 			if sexprj.IsSymbol() && sexprj.AsSymbol() == ellipsis {
