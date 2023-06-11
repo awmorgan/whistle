@@ -8,7 +8,7 @@ import (
 func main() {
 	l := Lisp{}
 	l.process = &process{pid: "<pid1>"}
-	p := Proc{isBuiltin: true, sexpression: sexpression{value: BuiltinProc(add)}}
+	p := Proc{sexpression{value: BuiltinProc(add)}, true}
 	l.Env = &Env{dict: map[string]SExpression{"+": p}}
 	sexprs, _ := Multiparse(datalog)
 	for _, def := range sexprs {
