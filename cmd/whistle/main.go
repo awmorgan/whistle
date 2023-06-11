@@ -11,7 +11,12 @@ func main() {
 		process: &process{
 			pid: "<pid1>",
 		},
-		Env: GlobalEnv(),
+		Env: &Env{
+			dict: map[Symbol]SExpression{
+				"+": builtinFunc(add),
+			},
+			outer: nil,
+		},
 	}
 	l.Load(datalog)
 	for _, e := range sexpressions {
@@ -318,12 +323,6 @@ type BuiltinProc = func(*process, *Env, []SExpression) (SExpression, error)
 
 type process struct {
 	pid string
-}
-
-func GlobalEnv() *Env {
-	return &Env{dict: map[Symbol]SExpression{
-		"+": builtinFunc(add),
-	}, outer: nil}
 }
 
 func builtinFunc(f BuiltinProc) Proc {
