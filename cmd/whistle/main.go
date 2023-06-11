@@ -319,6 +319,11 @@ func syntaxRules(keyword string, sr Pair) transformer {
 	for _, e := range cons2list(sr.cadr().(Pair)) {
 		literals = append(literals, e.AsString())
 	}
+	clauses := prepareClauses(sr, literals)
+	return generateTransformerFunction(clauses)
+}
+
+func prepareClauses(sr Pair, literals []string) []clause {
 	clauses := []clause{}
 	for _, c := range cons2list(sr.cddr().(Pair)) {
 		cp := c.(Pair)
@@ -328,6 +333,10 @@ func syntaxRules(keyword string, sr Pair) transformer {
 		t := analyseTemplate(literals, cp.cadr(), s, e)
 		clauses = append(clauses, clause{pattern: p, template: t, ellipsis: e})
 	}
+	return clauses
+}
+
+func generateTransformerFunction(clauses []clause) transformer {
 	return func(p Pair) SExpression {
 		substitutions := map[string]SExpression{}
 		fmt.Printf("in closure: clause[0].pattern.isList: %v\n", clauses[0].pattern.isList)
