@@ -7,16 +7,16 @@ import (
 
 func main() {
 	l := Lisp{}
-	l.process = &process{ pid: "<pid1>" }
-	l.Env = &Env{ dict: map[Symbol]SExpression{ "+": builtinFunc(add) } }
+	l.process = &process{pid: "<pid1>"}
+	l.Env = &Env{dict: map[Symbol]SExpression{"+": builtinFunc(add)}}
 	sexprs, _ := Multiparse(datalog)
 	for _, def := range sexprs {
-		l.EvalExpr(def)
+		l.process.evalEnv(l.Env, def)
 	}
 
 	sexpressions, _ := Multiparse("(define a (dl_record 'vertex))")
 	for _, e := range sexpressions {
-		l.EvalExpr(e)
+		l.process.evalEnv(l.Env, e)
 	}
 }
 
@@ -39,10 +39,6 @@ var datalog string = `
 type Lisp struct {
 	process *process
 	Env     *Env
-}
-
-func (l Lisp) EvalExpr(e SExpression) (SExpression, error) {
-	return l.process.evalEnv(l.Env, e)
 }
 
 type Env struct {
