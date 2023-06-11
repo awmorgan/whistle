@@ -105,18 +105,18 @@ Loop:
 				exp := ep.caddr()
 				evalled, _ := p.evalEnv(env, exp)
 				env.dict[sym] = evalled
-				return NewPrimitive(false), nil
+				return NewAtom(false), nil
 			case "set!":
 				sym := ep.cadr().AsString()
 				exp := ep.caddr()
 				evalled, _ := p.evalEnv(env, exp)
 				env.replace(sym, evalled)
-				return NewPrimitive(false), nil
+				return NewAtom(false), nil
 			case "define-syntax":
 				keyword := ep.cadr().AsString()
 				transformer := ep.caddr().(Pair)
 				macromap[keyword] = syntaxRules(keyword, transformer)
-				return NewPrimitive(false), nil
+				return NewAtom(false), nil
 			case "lambda":
 				params := ep.cadr().(Pair)
 				body := ep.caddr()
@@ -174,10 +174,6 @@ func Newstring(s string) Atom {
 	a := NewAtom(s)
 	a.isstring = true
 	return a
-}
-
-func NewPrimitive(v any) Atom {
-	return NewAtom(v)
 }
 
 type Atom struct {
@@ -285,7 +281,7 @@ func builtinFunc(f BuiltinProc) Proc {
 }
 
 func add(p *process, env *Env, args []SExpression) (SExpression, error) {
-	return NewPrimitive(args[0].AsFloat64() + args[1].AsFloat64()), nil
+	return NewAtom(args[0].AsFloat64() + args[1].AsFloat64()), nil
 }
 
 const ellipsis = "..."
@@ -580,9 +576,9 @@ func readFromTokens(tokens []string) (SExpression, []string, error) {
 
 func atom(token string) SExpression {
 	if token == "0" {
-		return NewPrimitive(0.0)
+		return NewAtom(0.0)
 	} else if token == "1" {
-		return NewPrimitive(1.0)
+		return NewAtom(1.0)
 	}
 	if token[0] == '\'' {
 		quote, _, _ := readFromTokens([]string{"(", "quote", token[1:], ")"})
