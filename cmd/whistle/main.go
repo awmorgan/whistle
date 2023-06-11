@@ -74,7 +74,7 @@ func newEnv(params Pair, args []SExpression, outer *Env) *Env {
 	m := map[Symbol]SExpression{}
 	i := 0
 	for params != NewPair(nil, nil) {
-		m[params.car().AsSymbol()] = args[i]
+		m[params.pcar.AsSymbol()] = args[i]
 		params = params.cdr().AsPair()
 		i++
 	}
@@ -99,17 +99,17 @@ Loop:
 			return e, nil
 		}
 		ep := e.AsPair()
-		car := ep.car()
+		car := ep.pcar
 		if car.IsSymbol() {
 			s := car.AsSymbol()
 			switch s {
 			case "begin":
 				args := ep.cdr().AsPair()
 				for args.cdr().AsPair() != NewPair(nil, nil) {
-					p.evalEnv(env, args.car())
+					p.evalEnv(env, args.pcar)
 					args = args.cdr().AsPair()
 				}
-				e = args.car()
+				e = args.pcar
 				continue Loop
 			case "define":
 				sym := ep.cadr().AsSymbol()
@@ -146,7 +146,7 @@ Loop:
 		pargs := ep.cdr().AsPair()
 		args := []SExpression{}
 		for pargs != NewPair(nil, nil) {
-			args = append(args, pargs.car())
+			args = append(args, pargs.pcar)
 			pargs = pargs.cdr().AsPair()
 		}
 		for i, arg := range args {
@@ -257,20 +257,16 @@ func (p Pair) AsPair() Pair {
 	return p
 }
 
-func (p Pair) car() SExpression {
-	return p.pcar
-}
-
 func (p Pair) cdr() SExpression {
 	return p.pcdr
 }
 
 func (p Pair) cadr() SExpression {
-	return p.cdr().AsPair().car()
+	return p.cdr().AsPair().pcar
 }
 
 func (p Pair) caddr() SExpression {
-	return p.cdr().AsPair().cdr().AsPair().car()
+	return p.cdr().AsPair().cdr().AsPair().pcar
 }
 
 func (p Pair) cddr() SExpression {
@@ -374,10 +370,10 @@ func parse(program string) (SExpression, error) {
 type transformer = func(Pair) SExpression
 
 func expandMacro(p Pair) (SExpression, bool) {
-	if !p.car().IsSymbol() {
+	if !p.pcar.IsSymbol() {
 		return p, false
 	}
-	s := p.car().AsSymbol()
+	s := p.pcar.AsSymbol()
 	tf, ok := macromap[s]
 	if !ok {
 		return p, false
@@ -395,7 +391,7 @@ func syntaxRules(keyword string, sr Pair) transformer {
 		cp := c.AsPair()
 		s := map[Symbol]Symbol{}
 		e := map[Symbol]int{}
-		p := analysePattern(literals, cp.car(), s, e)
+		p := analysePattern(literals, cp.pcar, s, e)
 		t := analyseTemplate(literals, cp.cadr(), s, e)
 		clauses = append(clauses, clause{pattern: p, template: t, ellipsis: e})
 	}
@@ -529,7 +525,7 @@ func unifyWithEllipsis(p pattern, q SExpression, s map[Symbol]SExpression, depth
 Loop:
 	for _, pp := range p.listContent {
 		if !pp.hasEllipsis {
-			unifyWithEllipsis(pp, qp.car(), s, depth)
+			unifyWithEllipsis(pp, qp.pcar, s, depth)
 			qp = qp.cdr().AsPair()
 			continue Loop
 		}
@@ -540,7 +536,7 @@ Loop:
 			if qp == NewPair(nil, nil) {
 				continue Loop
 			}
-			unifyWithEllipsis(pp, qp.car(), s, newdepth)
+			unifyWithEllipsis(pp, qp.pcar, s, newdepth)
 			newdepth[len(newdepth)-1] = newdepth[len(newdepth)-1] + 1
 			qp = qp.cdr().AsPair()
 		}
