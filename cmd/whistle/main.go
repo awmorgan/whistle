@@ -5,6 +5,76 @@ import (
 	"strings"
 )
 
+type SExpression interface {
+	IsString() bool
+	IsAtom() bool
+	IsPair() bool
+	AsString() string
+	AsFloat64() float64
+}
+
+type sexpression struct {
+	isExpression bool
+	isAtom       bool
+	isString     bool
+	value        any
+}
+
+type Atom struct {
+	sexpression
+}
+
+type Pair struct {
+	sexpression
+	pcar SExpression
+	pcdr SExpression
+}
+
+type Lisp struct {
+	process *process
+	Env     *Env
+}
+
+type Env struct {
+	dict  map[string]SExpression
+	outer *Env
+}
+
+type Proc struct {
+	sexpression
+	isBuiltin bool // user defined proc if false
+}
+
+type DefinedProc struct {
+	params Pair
+	body   SExpression
+	env    *Env
+}
+
+type BuiltinProc = func(*process, *Env, []SExpression) (SExpression, error)
+
+type process struct {
+	pid string
+}
+
+type transformer = func(Pair) SExpression
+
+type clause struct {
+	pattern  pattern
+	template pattern
+	ellipsis map[string]int
+}
+
+type pattern struct {
+	isVariable   bool
+	isUnderscore bool
+	isLiteral    bool
+	isList       bool
+	hasEllipsis  bool
+	content      SExpression
+	listContent  []pattern
+}
+
 func main() {
 	l := Lisp{}
 	l.process = &process{pid: "<pid1>"}
@@ -36,16 +106,6 @@ var datalog string = `
      ((_ type (attr value) ...) (let ((id (dl_nextID)))
        (dl_assert id (list type attr) value) ... id))))
 `
-
-type Lisp struct {
-	process *process
-	Env     *Env
-}
-
-type Env struct {
-	dict  map[string]SExpression
-	outer *Env
-}
 
 func (e *Env) find(s string) (*Env, bool) {
 	if _, ok := e.dict[s]; ok {
@@ -177,37 +237,12 @@ func Newstring(s string) Atom {
 	return a
 }
 
-type Atom struct {
-	sexpression
-}
-
 func NewAtom(v any) Atom {
 	return Atom{sexpression{
 		isExpression: true,
 		isAtom:       true,
 		value:        v,
 	}}
-}
-
-type SExpression interface {
-	IsString() bool
-	IsAtom() bool
-	IsPair() bool
-	AsString() string
-	AsFloat64() float64
-}
-
-type sexpression struct {
-	isExpression bool
-	isAtom       bool
-	isString     bool
-	value        any
-}
-
-type Pair struct {
-	sexpression
-	pcar SExpression
-	pcdr SExpression
 }
 
 func NewPair(car, cdr SExpression) Pair {
@@ -243,23 +278,6 @@ func cons2list(p Pair) []SExpression {
 	return list
 }
 
-type Proc struct {
-	sexpression
-	isBuiltin bool // user defined proc if false
-}
-
-type DefinedProc struct {
-	params Pair
-	body   SExpression
-	env    *Env
-}
-
-type BuiltinProc = func(*process, *Env, []SExpression) (SExpression, error)
-
-type process struct {
-	pid string
-}
-
 func add(p *process, env *Env, args []SExpression) (SExpression, error) {
 	return NewAtom(args[0].AsFloat64() + args[1].AsFloat64()), nil
 }
@@ -287,8 +305,6 @@ func parse(program string) (SExpression, error) {
 	p, _, err := readFromTokens(tokenize(program))
 	return p, err
 }
-
-type transformer = func(Pair) SExpression
 
 func expandMacro(p Pair) (SExpression, bool) {
 	if !p.pcar.IsString() {
@@ -331,22 +347,6 @@ func generateTransformerFunction(clauses []clause) transformer {
 		unify(clauses[0].pattern, p, substitutions)
 		return substituteTemplate(clauses[0].template, substitutions, clauses[0].ellipsis)
 	}
-}
-
-type clause struct {
-	pattern  pattern
-	template pattern
-	ellipsis map[string]int
-}
-
-type pattern struct {
-	isVariable   bool
-	isUnderscore bool
-	isLiteral    bool
-	isList       bool
-	hasEllipsis  bool
-	content      SExpression
-	listContent  []pattern
 }
 
 var symbolCounter int
