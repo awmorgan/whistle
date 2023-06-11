@@ -154,10 +154,6 @@ func (s sexpression) IsSymbol() bool {
 	return s.isAtom && s.isSymbol
 }
 
-func (s sexpression) IsNumber() bool {
-	return false
-}
-
 func (s sexpression) IsAtom() bool {
 	return s.isExpression && s.isAtom
 }
@@ -202,7 +198,6 @@ func NewAtom(v any) Atom {
 
 type SExpression interface {
 	IsSymbol() bool
-	IsNumber() bool
 	IsAtom() bool
 	IsPair() bool
 	AsSymbol() Symbol
