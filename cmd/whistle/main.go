@@ -103,24 +103,24 @@ Loop:
 				continue Loop
 			case "define":
 				sym := ep.pcdr.(Pair).pcar.AsString()
-				exp := ep.caddr()
+				exp := ep.pcdr.(Pair).pcdr.(Pair).pcar
 				evalled, _ := p.evalEnv(env, exp)
 				env.dict[sym] = evalled
 				return NewAtom(false), nil
 			case "set!":
 				sym := ep.pcdr.(Pair).pcar.AsString()
-				exp := ep.caddr()
+				exp := ep.pcdr.(Pair).pcdr.(Pair).pcar
 				evalled, _ := p.evalEnv(env, exp)
 				env.replace(sym, evalled)
 				return NewAtom(false), nil
 			case "define-syntax":
 				keyword := ep.pcdr.(Pair).pcar.AsString()
-				transformer := ep.caddr().(Pair)
+				transformer := ep.pcdr.(Pair).pcdr.(Pair).pcar.(Pair)
 				macromap[keyword] = syntaxRules(keyword, transformer)
 				return NewAtom(false), nil
 			case "lambda":
 				params := ep.pcdr.(Pair).pcar.(Pair)
-				body := ep.caddr()
+				body := ep.pcdr.(Pair).pcdr.(Pair).pcar
 				return Proc{sexpression: sexpression{
 					value: DefinedProc{
 						params: params,
@@ -220,14 +220,6 @@ func NewPair(car, cdr SExpression) Pair {
 	}
 }
 
-func (p Pair) caddr() SExpression {
-	return p.pcdr.(Pair).pcdr.(Pair).pcar
-}
-
-func (p Pair) cddr() SExpression {
-	return p.pcdr.(Pair).pcdr
-}
-
 func list2cons(list ...SExpression) Pair {
 	if len(list) == 0 {
 		return NewPair(nil, nil)
@@ -321,7 +313,7 @@ func syntaxRules(keyword string, sr Pair) transformer {
 
 func prepareClauses(sr Pair, literals []string) []clause {
 	clauses := []clause{}
-	for _, c := range cons2list(sr.cddr().(Pair)) {
+	for _, c := range cons2list(sr.pcdr.(Pair).pcdr.(Pair)) {
 		cp := c.(Pair)
 		s := map[string]string{}
 		e := map[string]int{}
