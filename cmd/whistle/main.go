@@ -152,7 +152,7 @@ Loop:
 }
 
 func (s sexpression) IsString() bool {
-	return s.isAtom && s.isstring
+	return s.isAtom && s.isString
 }
 
 func (s sexpression) IsAtom() bool {
@@ -173,7 +173,7 @@ func (s sexpression) AsFloat64() float64 {
 
 func Newstring(s string) Atom {
 	a := NewAtom(s)
-	a.isstring = true
+	a.isString = true
 	return a
 }
 
@@ -200,7 +200,7 @@ type SExpression interface {
 type sexpression struct {
 	isExpression bool
 	isAtom       bool
-	isstring     bool
+	isString     bool
 	value        any
 }
 
