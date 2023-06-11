@@ -169,7 +169,7 @@ type sexpression struct {
 }
 
 func (s sexpression) IsSymbol() bool {
-	return s.isExpression && s.isAtom && s.isSymbol
+	return s.isAtom && s.isSymbol
 }
 
 func (s sexpression) IsNumber() bool {
