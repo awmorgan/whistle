@@ -145,7 +145,7 @@ Loop:
 		if proc.isBuiltin {
 			return proc.value.(BuiltinProc)(p, env, args)
 		}
-		defproc := proc.defined()
+		defproc := proc.value.(DefinedProc)
 		env, e = newEnv(defproc.params, args, defproc.env), defproc.body
 	}
 }
@@ -265,10 +265,6 @@ func cons2list(p Pair) []SExpression {
 type Proc struct {
 	sexpression
 	isBuiltin bool // user defined proc if false
-}
-
-func (p Proc) defined() DefinedProc {
-	return p.value.(DefinedProc)
 }
 
 type DefinedProc struct {
