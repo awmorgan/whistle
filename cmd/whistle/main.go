@@ -143,7 +143,7 @@ Loop:
 			args[i] = evarg
 		}
 		if proc.isBuiltin {
-			return proc.builtin()(p, env, args)
+			return proc.value.(BuiltinProc)(p, env, args)
 		}
 		defproc := proc.defined()
 		env, e = newEnv(defproc.params, args, defproc.env), defproc.body
@@ -267,9 +267,6 @@ type Proc struct {
 	isBuiltin bool // user defined proc if false
 }
 
-func (p Proc) builtin() BuiltinProc {
-	return p.value.(BuiltinProc)
-}
 func (p Proc) defined() DefinedProc {
 	return p.value.(DefinedProc)
 }
