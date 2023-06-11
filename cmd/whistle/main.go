@@ -8,7 +8,8 @@ import (
 func main() {
 	l := Lisp{}
 	l.process = &process{pid: "<pid1>"}
-	l.Env = &Env{dict: map[string]SExpression{"+": builtinFunc(add)}}
+	p := Proc{isBuiltin: true, sexpression: sexpression{value: BuiltinProc(add)}}
+	l.Env = &Env{dict: map[string]SExpression{"+": p}}
 	sexprs, _ := Multiparse(datalog)
 	for _, def := range sexprs {
 		l.process.evalEnv(l.Env, def)
@@ -269,15 +270,6 @@ type BuiltinProc = func(*process, *Env, []SExpression) (SExpression, error)
 
 type process struct {
 	pid string
-}
-
-func builtinFunc(f BuiltinProc) Proc {
-	return Proc{
-		isBuiltin: true,
-		sexpression: sexpression{
-			value: f,
-		},
-	}
 }
 
 func add(p *process, env *Env, args []SExpression) (SExpression, error) {
