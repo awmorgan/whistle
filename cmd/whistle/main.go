@@ -15,7 +15,7 @@ type SExpression interface {
 
 type sexpression struct {
 	isExpression, isAtom, isString bool
-	value                          any
+	value                          interface{}
 }
 
 type Atom struct {
@@ -229,7 +229,7 @@ func Newstring(s string) Atom {
 	return a
 }
 
-func NewAtom(v any) Atom {
+func NewAtom(v interface{}) Atom {
 	return Atom{sexpression{
 		isExpression: true,
 		isAtom:       true,
