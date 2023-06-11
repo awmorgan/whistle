@@ -352,13 +352,10 @@ func syntaxRules(keyword string, sr Pair) transformer {
 		clauses = append(clauses, clause{pattern: p, template: t, ellipsis: e})
 	}
 	return func(p Pair) SExpression {
-		for i, c := range clauses {
-			substitutions := map[Symbol]SExpression{}
-			fmt.Printf("in closure: clause[%d].pattern.isList: %v\n", i, c.pattern.isList)
-			unify(c.pattern, p, substitutions)
-			return substituteTemplate(c.template, substitutions, c.ellipsis)
-		}
-		return nil
+		substitutions := map[Symbol]SExpression{}
+		fmt.Printf("in closure: clause[0].pattern.isList: %v\n", clauses[0].pattern.isList)
+		unify(clauses[0].pattern, p, substitutions)
+		return substituteTemplate(clauses[0].template, substitutions, clauses[0].ellipsis)
 	}
 }
 
