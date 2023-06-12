@@ -6,29 +6,29 @@ import (
 )
 
 type SE interface {
-	IsString() bool
-	IsAtom() bool
-	IsPair() bool
-	AsString() string
-	AsFloat64() float64
+	IsS() bool
+	IsA() bool
+	IsP() bool
+	AsS() string
+	AsF() float64
 }
 
-type sexpression struct {
+type se struct {
 	isExpression, isAtom, isString bool
 	value                          interface{}
 }
 
 type Atom struct {
-	sexpression
+	se
 }
 
 type Pair struct {
-	sexpression
+	se
 	pcar, pcdr SE
 }
 
 type Proc struct {
-	sexpression
+	se
 	isBuiltin bool
 }
 
@@ -70,7 +70,7 @@ type pattern struct {
 func main() {
 	l := Lisp{}
 	l.process = &process{pid: "<pid1>"}
-	p := Proc{sexpression{value: BuiltinProc(add)}, true}
+	p := Proc{se{value: BuiltinProc(add)}, true}
 	l.Env = &Env{dict: map[string]SE{"+": p}}
 	sexprs, _ := Multiparse(`
 	(define dl_counter 0)
@@ -114,7 +114,7 @@ func newEnv(params Pair, args []SE, outer *Env) *Env {
 	m := map[string]SE{}
 	i := 0
 	for params != NewPair(nil, nil) {
-		m[params.pcar.AsString()] = args[i]
+		m[params.pcar.AsS()] = args[i]
 		params = params.pcdr.(Pair)
 		i++
 	}
@@ -124,24 +124,24 @@ func newEnv(params Pair, args []SE, outer *Env) *Env {
 func (p *process) evalEnv(env *Env, e SE) (SE, error) {
 Loop:
 	for {
-		if e.IsPair() {
+		if e.IsP() {
 			ex, ok := expandMacro(e.(Pair))
 			if ok {
 				e = ex
 				continue Loop
 			}
 		}
-		if e.IsAtom() {
-			if e.IsString() {
-				ed, _ := env.find(e.AsString())
-				return ed.dict[e.AsString()], nil
+		if e.IsA() {
+			if e.IsS() {
+				ed, _ := env.find(e.AsS())
+				return ed.dict[e.AsS()], nil
 			}
 			return e, nil
 		}
 		ep := e.(Pair)
 		car := ep.pcar
-		if car.IsString() {
-			s := car.AsString()
+		if car.IsS() {
+			s := car.AsS()
 			switch s {
 			case "begin":
 				args := ep.pcdr.(Pair)
@@ -152,26 +152,26 @@ Loop:
 				e = args.pcar
 				continue Loop
 			case "define":
-				sym := ep.pcdr.(Pair).pcar.AsString()
+				sym := ep.pcdr.(Pair).pcar.AsS()
 				exp := ep.pcdr.(Pair).pcdr.(Pair).pcar
 				evalled, _ := p.evalEnv(env, exp)
 				env.dict[sym] = evalled
 				return NewAtom(false), nil
 			case "set!":
-				sym := ep.pcdr.(Pair).pcar.AsString()
+				sym := ep.pcdr.(Pair).pcar.AsS()
 				exp := ep.pcdr.(Pair).pcdr.(Pair).pcar
 				evalled, _ := p.evalEnv(env, exp)
 				env.replace(sym, evalled)
 				return NewAtom(false), nil
 			case "define-syntax":
-				keyword := ep.pcdr.(Pair).pcar.AsString()
+				keyword := ep.pcdr.(Pair).pcar.AsS()
 				transformer := ep.pcdr.(Pair).pcdr.(Pair).pcar.(Pair)
 				macromap[keyword] = syntaxRules(keyword, transformer)
 				return NewAtom(false), nil
 			case "lambda":
 				params := ep.pcdr.(Pair).pcar.(Pair)
 				body := ep.pcdr.(Pair).pcdr.(Pair).pcar
-				return Proc{sexpression: sexpression{
+				return Proc{se: se{
 					value: DefinedProc{
 						params: params,
 						body:   body,
@@ -201,23 +201,23 @@ Loop:
 	}
 }
 
-func (s sexpression) IsString() bool {
+func (s se) IsS() bool {
 	return s.isAtom && s.isString
 }
 
-func (s sexpression) IsAtom() bool {
+func (s se) IsA() bool {
 	return s.isExpression && s.isAtom
 }
 
-func (s sexpression) IsPair() bool {
+func (s se) IsP() bool {
 	return s.isExpression && !s.isAtom
 }
 
-func (s sexpression) AsString() string {
+func (s se) AsS() string {
 	return s.value.(string)
 }
 
-func (s sexpression) AsFloat64() float64 {
+func (s se) AsF() float64 {
 	return s.value.(float64)
 }
 
@@ -228,7 +228,7 @@ func Newstring(s string) Atom {
 }
 
 func NewAtom(v interface{}) Atom {
-	return Atom{sexpression{
+	return Atom{se{
 		isExpression: true,
 		isAtom:       true,
 		value:        v,
@@ -237,7 +237,7 @@ func NewAtom(v interface{}) Atom {
 
 func NewPair(car, cdr SE) Pair {
 	return Pair{
-		sexpression: sexpression{
+		se: se{
 			isExpression: true,
 		},
 		pcar: car,
@@ -269,7 +269,7 @@ func cons2list(p Pair) []SE {
 }
 
 func add(p *process, env *Env, args []SE) (SE, error) {
-	return NewAtom(args[0].AsFloat64() + args[1].AsFloat64()), nil
+	return NewAtom(args[0].AsF() + args[1].AsF()), nil
 }
 
 const ellipsis = "..."
@@ -297,10 +297,10 @@ func parse(program string) (SE, error) {
 }
 
 func expandMacro(p Pair) (SE, bool) {
-	if !p.pcar.IsString() {
+	if !p.pcar.IsS() {
 		return p, false
 	}
-	s := p.pcar.AsString()
+	s := p.pcar.AsS()
 	tf, ok := macromap[s]
 	if !ok {
 		return p, false
@@ -311,7 +311,7 @@ func expandMacro(p Pair) (SE, bool) {
 func syntaxRules(keyword string, sr Pair) transformer {
 	literals := []string{keyword, "lambda", "define", "begin"}
 	for _, e := range cons2list(sr.pcdr.(Pair).pcar.(Pair)) {
-		literals = append(literals, e.AsString())
+		literals = append(literals, e.AsS())
 	}
 	clauses := prepareClauses(sr, literals)
 	return generateTransformerFunction(clauses)
@@ -347,8 +347,8 @@ func gensym() string {
 }
 
 func analyse(l []string, p SE, g map[string]string, b bool) pattern {
-	if p.IsString() {
-		s := p.AsString()
+	if p.IsS() {
+		s := p.AsS()
 		if s == underscore {
 			return pattern{isUnderscore: true}
 		}
@@ -373,7 +373,7 @@ func analyse(l []string, p SE, g map[string]string, b bool) pattern {
 		pi := analyse(l, list[i], g, b)
 		if i != len(list)-1 {
 			sj := list[i+1]
-			if sj.IsString() && sj.AsString() == ellipsis {
+			if sj.IsS() && sj.AsS() == ellipsis {
 				pi.hasEllipsis = true
 				i++
 			}
@@ -395,7 +395,7 @@ func analyseTemplate(l []string, t SE, g map[string]string, e map[string]int) pa
 
 func analyseEllipsis(p pattern, e map[string]int, d int) {
 	if p.isVariable && (d != 0 || p.hasEllipsis) {
-		ps := p.content.AsString()
+		ps := p.content.AsS()
 		if p.hasEllipsis {
 			d++
 		}
@@ -418,7 +418,7 @@ func unify(p pattern, q SE, s map[string]SE) bool {
 func unifyWithEllipsis(p pattern, q SE, s map[string]SE, d []int) bool {
 	if p.isUnderscore || p.isVariable {
 		if p.isVariable {
-			ps := p.content.AsString()
+			ps := p.content.AsS()
 			for i := range d {
 				ps += fmt.Sprintf("#%d", d[i])
 			}
@@ -458,7 +458,7 @@ func substituteTemplateWithEllipsis(template pattern, substitutions map[string]S
 		return template.content, false
 	}
 	if template.isVariable {
-		ss := template.content.AsString()
+		ss := template.content.AsS()
 		_, isEllipsis := e[ss]
 		for i := 0; i < len(depth); i++ {
 			ss += fmt.Sprintf("#%d", depth[i])
@@ -470,7 +470,7 @@ func substituteTemplateWithEllipsis(template pattern, substitutions map[string]S
 		if isEllipsis {
 			return template.content, false
 		}
-		ss = template.content.AsString()
+		ss = template.content.AsS()
 		s, ok = substitutions[ss]
 		if ok {
 			return s, false
