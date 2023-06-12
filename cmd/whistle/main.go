@@ -519,13 +519,13 @@ func substituteTemplateWithEllipsis(template pattern, substitutions map[string]S
 	return list2cons(out...), found
 }
 
-func Multiparse(file string) ([]SExpression, error) {
-	tokens := tokenize(file)
+func Multiparse(f string) ([]SExpression, error) {
+	var e SExpression
+	t := tokenize(f)
 	exprs := []SExpression{}
-	for len(tokens) > 0 {
-		e, rem, _ := readFromTokens(tokens)
+	for len(t) > 0 {
+		e, t, _ = readFromTokens(t)
 		exprs = append(exprs, e)
-		tokens = rem
 	}
 	return exprs, nil
 }
