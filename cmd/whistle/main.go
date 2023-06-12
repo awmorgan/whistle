@@ -531,9 +531,7 @@ func Multiparse(file string) ([]SExpression, error) {
 }
 
 func tokenize(s string) []string {
-	s = strings.ReplaceAll(s, "(", " ( ")
-	s = strings.ReplaceAll(s, ")", " ) ")
-	return append([]string{}, strings.Fields(s)...)
+	return strings.Fields(strings.ReplaceAll(strings.ReplaceAll(s, "(", " ( "), ")", " ) "))
 }
 
 func readFromTokens(t []string) (SExpression, []string, error) {
