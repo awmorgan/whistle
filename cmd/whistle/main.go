@@ -423,47 +423,42 @@ func unify(p pattern, q SExpression, s map[string]SExpression) bool {
 	return unifyWithEllipsis(p, q, s, []int{})
 }
 
-func unifyWithEllipsis(p pattern, q SExpression, s map[string]SExpression, depth []int) bool {
-	if p.isUnderscore {
-		return true
-	}
-	if p.isVariable {
-		ps := p.content.AsString()
-		for i := 0; i < len(depth); i++ {
-			ps += fmt.Sprintf("#%d", depth[i])
+func unifyWithEllipsis(p pattern, q SExpression, s map[string]SExpression, d []int) bool {
+	if p.isUnderscore || p.isVariable {
+		if p.isVariable {
+			ps := p.content.AsString()
+			for i := range d {
+				ps += fmt.Sprintf("#%d", d[i])
+			}
+			s[ps] = q
 		}
-		s[ps] = q
 		return true
 	}
 	if !p.isList {
 		panic("pattern assumed to be list")
 	}
 	qp := q.(Pair)
-Loop:
 	for _, pp := range p.listContent {
-		if !pp.hasEllipsis {
-			unifyWithEllipsis(pp, qp.pcar, s, depth)
-			qp = qp.pcdr.(Pair)
-			continue Loop
-		}
-		newdepth := make([]int, len(depth))
-		copy(newdepth, depth)
-		newdepth = append(newdepth, 0)
-		for {
-			if qp == NewPair(nil, nil) {
-				continue Loop
+		if pp.hasEllipsis {
+			nd := make([]int, len(d))
+			copy(nd, d)
+			nd = append(nd, 0)
+			for qp != NewPair(nil, nil) {
+				unifyWithEllipsis(pp, qp.pcar, s, nd)
+				nd[len(nd)-1]++
+				qp = qp.pcdr.(Pair)
 			}
-			unifyWithEllipsis(pp, qp.pcar, s, newdepth)
-			newdepth[len(newdepth)-1] = newdepth[len(newdepth)-1] + 1
-			qp = qp.pcdr.(Pair)
+			continue
 		}
+		unifyWithEllipsis(pp, qp.pcar, s, d)
+		qp = qp.pcdr.(Pair)
 	}
 	return qp == NewPair(nil, nil)
 }
 
-func substituteTemplate(template pattern, substitutions map[string]SExpression, ellipsis map[string]int) SExpression {
-	sexpr, _ := substituteTemplateWithEllipsis(template, substitutions, ellipsis, []int{})
-	return sexpr
+func substituteTemplate(p pattern, s map[string]SExpression, e map[string]int) SExpression {
+	x, _ := substituteTemplateWithEllipsis(p, s, e, []int{})
+	return x
 }
 
 func substituteTemplateWithEllipsis(template pattern, substitutions map[string]SExpression, e map[string]int, depth []int) (SExpression, bool) {
