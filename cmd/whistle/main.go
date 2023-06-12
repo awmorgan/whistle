@@ -536,20 +536,20 @@ func tokenize(s string) []string {
 	return append([]string{}, strings.Fields(s)...)
 }
 
-func readFromTokens(tokens []string) (SExpression, []string, error) {
-	token := tokens[0]
-	tokens = tokens[1:]
-	switch token {
+func readFromTokens(t []string) (SExpression, []string, error) {
+	t0 := t[0]
+	t = t[1:]
+	switch t0 {
 	case "(":
 		list := []SExpression{}
-		for tokens[0] != ")" {
-			parsed, t, _ := readFromTokens(tokens)
-			tokens = t
+		for t[0] != ")" {
+			parsed, t1, _ := readFromTokens(t)
+			t = t1
 			list = append(list, parsed)
 		}
-		return list2cons(list...), tokens[1:], nil
+		return list2cons(list...), t[1:], nil
 	default:
-		return atom(token), tokens, nil
+		return atom(t0), t, nil
 	}
 }
 
