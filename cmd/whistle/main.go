@@ -553,15 +553,13 @@ func readFromTokens(tokens []string) (SExpression, []string, error) {
 	}
 }
 
-func atom(token string) SExpression {
-	if token == "0" {
-		return NewAtom(0.0)
-	} else if token == "1" {
-		return NewAtom(1.0)
+func atom(t string) SExpression {
+	if t == "0" || t == "1" {
+		return NewAtom(float64(t[0] - '0'))
 	}
-	if token[0] == '\'' {
-		quote, _, _ := readFromTokens([]string{"(", "quote", token[1:], ")"})
-		return quote
+	if t[0] == '\'' {
+		q, _, _ := readFromTokens([]string{"(", "quote", t[1:], ")"})
+		return q
 	}
-	return Newstring(token)
+	return Newstring(t)
 }
