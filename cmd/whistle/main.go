@@ -384,15 +384,14 @@ func analyse(literals []string, p SExpression, gensyms map[string]string, build 
 	return pattern{isList: true, listContent: listContent}
 }
 
-func analysePattern(literals []string, p SExpression, gensyms map[string]string, ellipsis map[string]int) pattern {
-	pattern := analyse(literals, p, gensyms, true)
-	analyseEllipsis(pattern, ellipsis, 0)
-	return pattern
+func analysePattern(l []string, p SExpression, g map[string]string, e map[string]int) pattern {
+	pt := analyse(l, p, g, true)
+	analyseEllipsis(pt, e, 0)
+	return pt
 }
 
-func analyseTemplate(literals []string, t SExpression, gensyms map[string]string, ellipsis map[string]int) pattern {
-	pattern := analyse(literals, t, gensyms, false)
-	return pattern
+func analyseTemplate(l []string, t SExpression, g map[string]string, e map[string]int) pattern {
+	return analyse(l, t, g, false)
 }
 
 func analyseEllipsis(p pattern, e map[string]int, d int) {
