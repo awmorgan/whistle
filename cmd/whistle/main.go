@@ -113,7 +113,7 @@ func (e *Env) replace(s string, sexp SE) bool {
 func newEnv(params Pair, args []SE, outer *Env) *Env {
 	m := map[string]SE{}
 	i := 0
-	for params != NewPair(nil, nil) {
+	for params != NP(nil, nil) {
 		m[params.pcar.AsS()] = args[i]
 		params = params.pcdr.(Pair)
 		i++
@@ -145,7 +145,7 @@ Loop:
 			switch s {
 			case "begin":
 				args := ep.pcdr.(Pair)
-				for args.pcdr.(Pair) != NewPair(nil, nil) {
+				for args.pcdr.(Pair) != NP(nil, nil) {
 					p.evalEnv(env, args.pcar)
 					args = args.pcdr.(Pair)
 				}
@@ -185,7 +185,7 @@ Loop:
 		proc := e.(Proc)
 		pargs := ep.pcdr.(Pair)
 		args := []SE{}
-		for pargs != NewPair(nil, nil) {
+		for pargs != NP(nil, nil) {
 			args = append(args, pargs.pcar)
 			pargs = pargs.pcdr.(Pair)
 		}
@@ -235,7 +235,7 @@ func NewAtom(v interface{}) Atom {
 	}}
 }
 
-func NewPair(car, cdr SE) Pair {
+func NP(car, cdr SE) Pair {
 	return Pair{
 		se: se{
 			isExpression: true,
@@ -247,21 +247,21 @@ func NewPair(car, cdr SE) Pair {
 
 func list2cons(list ...SE) Pair {
 	if len(list) == 0 {
-		return NewPair(nil, nil)
+		return NP(nil, nil)
 	}
 	if len(list) == 1 {
-		return NewPair(list[0], NewPair(nil, nil))
+		return NP(list[0], NP(nil, nil))
 	}
-	cons := NewPair(nil, nil)
+	cons := NP(nil, nil)
 	for i := len(list) - 1; i >= 0; i-- {
-		cons = NewPair(list[i], cons)
+		cons = NP(list[i], cons)
 	}
 	return cons
 }
 
 func cons2list(p Pair) []SE {
 	list := []SE{}
-	for p != NewPair(nil, nil) {
+	for p != NP(nil, nil) {
 		list = append(list, p.pcar)
 		p = p.pcdr.(Pair)
 	}
@@ -435,7 +435,7 @@ func unifyWithEllipsis(p pattern, q SE, s map[string]SE, d []int) bool {
 			nd := make([]int, len(d))
 			copy(nd, d)
 			nd = append(nd, 0)
-			for qp != NewPair(nil, nil) {
+			for qp != NP(nil, nil) {
 				unifyWithEllipsis(pp, qp.pcar, s, nd)
 				nd[len(nd)-1]++
 				qp = qp.pcdr.(Pair)
@@ -445,7 +445,7 @@ func unifyWithEllipsis(p pattern, q SE, s map[string]SE, d []int) bool {
 		unifyWithEllipsis(pp, qp.pcar, s, d)
 		qp = qp.pcdr.(Pair)
 	}
-	return qp == NewPair(nil, nil)
+	return qp == NP(nil, nil)
 }
 
 func substituteTemplate(p pattern, s map[string]SE, e map[string]int) SE {
