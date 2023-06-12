@@ -395,27 +395,21 @@ func analyseTemplate(literals []string, t SExpression, gensyms map[string]string
 	return pattern
 }
 
-func analyseEllipsis(p pattern, e map[string]int, depth int) {
-	if p.isVariable {
-		if depth == 0 && !p.hasEllipsis {
-			return
-		}
+func analyseEllipsis(p pattern, e map[string]int, d int) {
+	if p.isVariable && (d != 0 || p.hasEllipsis) {
 		ps := p.content.AsString()
 		if p.hasEllipsis {
-			depth++
+			d++
 		}
-		e[ps] = depth
-		return
-	}
-	if !p.isList {
-		return
-	}
-	newdepth := depth
-	if p.hasEllipsis {
-		newdepth++
-	}
-	for _, pp := range p.listContent {
-		analyseEllipsis(pp, e, newdepth)
+		e[ps] = d
+	} else if p.isList {
+		nd := d
+		if p.hasEllipsis {
+			nd++
+		}
+		for _, pp := range p.listContent {
+			analyseEllipsis(pp, e, nd)
+		}
 	}
 }
 
