@@ -27,6 +27,11 @@ type Pair struct {
 	pcar, pcdr SExpression
 }
 
+type Proc struct {
+	sexpression
+	isBuiltin bool
+}
+
 type Lisp struct {
 	process *process
 	Env     *Env
@@ -35,11 +40,6 @@ type Lisp struct {
 type Env struct {
 	dict  map[string]SExpression
 	outer *Env
-}
-
-type Proc struct {
-	sexpression
-	isBuiltin bool
 }
 
 type DefinedProc struct {
@@ -72,7 +72,21 @@ func main() {
 	l.process = &process{pid: "<pid1>"}
 	p := Proc{sexpression{value: BuiltinProc(add)}, true}
 	l.Env = &Env{dict: map[string]SExpression{"+": p}}
-	sexprs, _ := Multiparse(datalog)
+	sexprs, _ := Multiparse(`
+	(define dl_counter 0)
+	(define dl_nextID (lambda () (begin
+	   (set! dl_counter (+ dl_counter 1))
+	   dl_counter)))
+
+	(define dl_assert (lambda (entity attr value) (begin
+	  (hashmap-set! dl_edb (list entity attr value) #t)
+	  (dl_update_indices (list entity attr value)))))
+
+	(define-syntax dl_record
+	   (syntax-rules (list let dl_nextID dl_assert)
+	     ((_ type (attr value) ...) (let ((id (dl_nextID)))
+	       (dl_assert id (list type attr) value) ... id))))
+	`)
 	for _, def := range sexprs {
 		l.process.evalEnv(l.Env, def)
 	}
@@ -82,22 +96,6 @@ func main() {
 		l.process.evalEnv(l.Env, e)
 	}
 }
-
-var datalog string = `
-(define dl_counter 0)
-(define dl_nextID (lambda () (begin
-   (set! dl_counter (+ dl_counter 1))
-   dl_counter)))
-
-(define dl_assert (lambda (entity attr value) (begin
-  (hashmap-set! dl_edb (list entity attr value) #t)
-  (dl_update_indices (list entity attr value)))))
-
-(define-syntax dl_record
-   (syntax-rules (list let dl_nextID dl_assert)
-     ((_ type (attr value) ...) (let ((id (dl_nextID)))
-       (dl_assert id (list type attr) value) ... id))))
-`
 
 func (e *Env) find(s string) (*Env, bool) {
 	if _, ok := e.dict[s]; ok {
@@ -220,26 +218,6 @@ func (s sexpression) AsString() string {
 }
 
 func (s sexpression) AsFloat64() float64 {
-	return s.value.(float64)
-}
-
-func IsString(s sexpression) bool {
-	return s.isAtom && s.isString
-}
-
-func IsAtom(s sexpression) bool {
-	return s.isExpression && s.isAtom
-}
-
-func IsPair(s sexpression) bool {
-	return s.isExpression && !s.isAtom
-}
-
-func AsString(s sexpression) string {
-	return s.value.(string)
-}
-
-func AsFloat64(s sexpression) float64 {
 	return s.value.(float64)
 }
 
