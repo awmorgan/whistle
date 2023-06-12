@@ -346,42 +346,41 @@ func gensym() string {
 	return string(fmt.Sprintf("gensym%d", symbolCounter))
 }
 
-func analyse(literals []string, p SExpression, gensyms map[string]string, build bool) pattern {
+func analyse(l []string, p SExpression, g map[string]string, b bool) pattern {
 	if p.IsString() {
-		sym := p.AsString()
-		if sym == underscore {
+		s := p.AsString()
+		if s == underscore {
 			return pattern{isUnderscore: true}
 		}
-		for _, lit := range literals {
-			if lit == sym {
+		for _, lt := range l {
+			if lt == s {
 				return pattern{isLiteral: true, content: p}
 			}
 		}
-		if build {
-			newsym := gensym()
-			gensyms[sym] = newsym
-			return pattern{isVariable: true, content: Newstring(newsym)}
+		if b {
+			ns := gensym()
+			g[s] = ns
+			return pattern{isVariable: true, content: Newstring(ns)}
 		}
-		newsym, ok := gensyms[sym]
-		if !ok {
-			return pattern{isVariable: true, content: p}
+		if ns, ok := g[s]; ok {
+			return pattern{isVariable: true, content: Newstring(ns)}
 		}
-		return pattern{isVariable: true, content: Newstring(newsym)}
+		return pattern{isVariable: true, content: p}
 	}
-	listContent := []pattern{}
+	lc := []pattern{}
 	list := cons2list(p.(Pair))
 	for i := 0; i < len(list); i++ {
-		pi := analyse(literals, list[i], gensyms, build)
+		pi := analyse(l, list[i], g, b)
 		if i != len(list)-1 {
-			sexprj := list[i+1]
-			if sexprj.IsString() && sexprj.AsString() == ellipsis {
+			sj := list[i+1]
+			if sj.IsString() && sj.AsString() == ellipsis {
 				pi.hasEllipsis = true
-				i += 1
+				i++
 			}
 		}
-		listContent = append(listContent, pi)
+		lc = append(lc, pi)
 	}
-	return pattern{isList: true, listContent: listContent}
+	return pattern{isList: true, listContent: lc}
 }
 
 func analysePattern(l []string, p SExpression, g map[string]string, e map[string]int) pattern {
