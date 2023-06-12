@@ -223,6 +223,26 @@ func (s sexpression) AsFloat64() float64 {
 	return s.value.(float64)
 }
 
+func IsString(s sexpression) bool {
+	return s.isAtom && s.isString
+}
+
+func IsAtom(s sexpression) bool {
+	return s.isExpression && s.isAtom
+}
+
+func IsPair(s sexpression) bool {
+	return s.isExpression && !s.isAtom
+}
+
+func AsString(s sexpression) string {
+	return s.value.(string)
+}
+
+func AsFloat64(s sexpression) float64 {
+	return s.value.(float64)
+}
+
 func Newstring(s string) Atom {
 	a := NewAtom(s)
 	a.isString = true
