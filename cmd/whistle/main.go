@@ -334,13 +334,7 @@ func generateTransformerFunction(clauses []clause) transformer {
 	return func(p Pair) SE {
 		substitutions := map[string]SE{}
 		fmt.Printf("in closure: \n")
-		fmt.Printf("pattern.isVariable: %v\n", clauses[0].pattern.isVariable)
-		fmt.Printf("pattern.isUnderscore: %v\n", clauses[0].pattern.isUnderscore)
-		fmt.Printf("pattern.isLiteral: %v\n", clauses[0].pattern.isLiteral)
 		fmt.Printf("pattern.isList: %v\n", clauses[0].pattern.isList)
-		fmt.Printf("pattern.hasEllipsis: %v\n", clauses[0].pattern.hasEllipsis)
-		fmt.Printf("pattern.content: %v\n", clauses[0].pattern.content)
-		fmt.Printf("pattern.listContent: %v\n", clauses[0].pattern.listContent)
 		unify(clauses[0].pattern, p, substitutions)
 		return substituteTemplate(clauses[0].template, substitutions, clauses[0].ellipsis)
 	}
