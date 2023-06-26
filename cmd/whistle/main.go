@@ -17,6 +17,7 @@ func main() {
 		startREPL()
 		return
 	}
+	lisp.InitMacromap()
 	filename := os.Args[1]
 	sexpressions, err := lisp.ParseFile(filename)
 	if err != nil {
